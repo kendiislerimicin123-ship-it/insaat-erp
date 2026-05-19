@@ -1,0 +1,85 @@
+# ════════════════════════════════════════════════════════════
+# İnşaat ERP - Docker Compose
+# Yerel geliştirme ortamı servisleri
+# ════════════════════════════════════════════════════════════
+
+services:
+  # ─────────────────────────────────
+  # PostgreSQL 16 - Ana Veritabanı
+  # ─────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: insaat-erp-postgres
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-insaat_erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-insaat_erp_dev}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - insaat-erp-network
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-insaat_erp_user} -d ${POSTGRES_DB:-insaat_erp_dev}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ─────────────────────────────────
+  # pgAdmin 4 - Web tabanlı DB yönetim arayüzü
+  # ─────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: insaat-erp-pgadmin
+    restart: unless-stopped
+    user: root
+    ports:
+      - '${PGADMIN_PORT:-5050}:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@insaat-erp.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-changeme}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_LISTEN_PORT: 80
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - insaat-erp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+# ════════════════════════════════════════════════════════════
+# Volume'lar - Kalıcı veri depolama
+# ════════════════════════════════════════════════════════════
+volumes:
+  postgres-data:
+    name: insaat-erp-postgres-data
+  pgadmin-data:
+    name: insaat-erp-pgadmin-data
+
+# ════════════════════════════════════════════════════════════
+# Network - Servisler arası iletişim
+# ════════════════════════════════════════════════════════════
+networks:
+  insaat-erp-network:
+    name: insaat-erp-network
+    driver: bridge

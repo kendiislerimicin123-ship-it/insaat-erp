@@ -1,0 +1,281 @@
+// ════════════════════════════════════════════════════════════
+// İnşaat ERP - Prisma Schema
+// ════════════════════════════════════════════════════════════
+// Bu dosya veri modelinin TEK kaynağıdır.
+// Değişiklik sonrası: npm run db:migrate çalıştır
+// ════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────
+// Generator: Prisma Client (TS API)
+// ─────────────────────────────────
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
+}
+
+// ─────────────────────────────────
+// Datasource: PostgreSQL
+// ─────────────────────────────────
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ════════════════════════════════════════════════════════════
+// ENUM'LAR
+// ════════════════════════════════════════════════════════════
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+
+  @@map("user_status")
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  EXPIRED
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  PERMISSION_GRANT
+  PERMISSION_REVOKE
+
+  @@map("audit_action")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: Tenant (Firma / Şirket)
+// ════════════════════════════════════════════════════════════
+// Multi-tenant mimarinin temeli. Her veri bir tenant'a aittir.
+// ════════════════════════════════════════════════════════════
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String       @db.VarChar(255)
+  slug      String       @unique @db.VarChar(100)
+  taxNumber String?      @unique @map("tax_number") @db.VarChar(20)
+  email     String?      @db.VarChar(255)
+  phone     String?      @db.VarChar(20)
+  address   String?      @db.Text
+  city      String?      @db.VarChar(100)
+  status    TenantStatus @default(TRIAL)
+
+  // İlişkiler
+  users     User[]
+  roles     Role[]
+  auditLogs AuditLog[]
+
+  // Audit alanları
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  @@index([slug])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("tenants")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: User (Kullanıcı)
+// ════════════════════════════════════════════════════════════
+model User {
+  id              String     @id @default(cuid())
+  tenantId        String     @map("tenant_id")
+  email           String     @db.VarChar(255)
+  password        String     @db.VarChar(255) // bcrypt hash
+  firstName       String     @map("first_name") @db.VarChar(100)
+  lastName        String     @map("last_name") @db.VarChar(100)
+  phone           String?    @db.VarChar(20)
+  avatar          String?    @db.Text
+  status          UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?  @map("email_verified_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
+  lastLoginIp     String?    @map("last_login_ip") @db.VarChar(45)
+
+  // İlişkiler
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  // Audit alanları
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  // Multi-tenant: Aynı email birden fazla tenant'ta olabilir
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: Role (Rol)
+// ════════════════════════════════════════════════════════════
+// Sistem genelinde tanımlı roller. Her tenant kendi rollerini
+// kullanabilir veya sistem genel rollerini paylaşabilir.
+// ════════════════════════════════════════════════════════════
+model Role {
+  id          String  @id @default(cuid())
+  tenantId    String? @map("tenant_id") // null = sistem geneli
+  name        String  @db.VarChar(100)
+  slug        String  @db.VarChar(100)
+  description String? @db.Text
+  isSystem    Boolean @default(false) @map("is_system")
+
+  // İlişkiler
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  // Audit alanları
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([slug])
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: Permission (İzin)
+// ════════════════════════════════════════════════════════════
+// Sistem genelindeki izinler. Format: resource.action
+// Örnek: user.create, project.delete, hakedis.approve
+// ════════════════════════════════════════════════════════════
+model Permission {
+  id          String  @id @default(cuid())
+  resource    String  @db.VarChar(100) // user, project, hakedis
+  action      String  @db.VarChar(50) // create, read, update, delete
+  description String? @db.Text
+
+  // İlişkiler
+  rolePermissions RolePermission[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([resource, action])
+  @@index([resource])
+  @@map("permissions")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: UserRole (M2M: User <-> Role)
+// ════════════════════════════════════════════════════════════
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: RolePermission (M2M: Role <-> Permission)
+// ════════════════════════════════════════════════════════════
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+  grantedBy    String?  @map("granted_by")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: RefreshToken (JWT Refresh Token Yönetimi)
+// ════════════════════════════════════════════════════════════
+// Refresh token'lar DB'de saklanır → iptal edilebilir.
+// Çalınan token'lar bu tablodan silinerek iptal edilebilir.
+// ════════════════════════════════════════════════════════════
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  token     String    @unique @db.VarChar(500)
+  userAgent String?   @map("user_agent") @db.Text
+  ipAddress String?   @map("ip_address") @db.VarChar(45)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: AuditLog (Denetim Kaydı)
+// ════════════════════════════════════════════════════════════
+// Sistemdeki TÜM önemli işlemleri kaydeder.
+// Kim, ne, ne zaman, hangi IP'den yaptı.
+// ════════════════════════════════════════════════════════════
+model AuditLog {
+  id         String      @id @default(cuid())
+  tenantId   String?     @map("tenant_id")
+  userId     String?     @map("user_id")
+  action     AuditAction
+  resource   String      @db.VarChar(100) // tablo adı
+  resourceId String?     @map("resource_id") // etkilenen kaydın ID'si
+  oldValues  Json?       @map("old_values")
+  newValues  Json?       @map("new_values")
+  ipAddress  String?     @map("ip_address") @db.VarChar(45)
+  userAgent  String?     @map("user_agent") @db.Text
+  metadata   Json?
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
