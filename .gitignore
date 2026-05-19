@@ -1,0 +1,123 @@
+# ════════════════════════════════════════════════════════════
+# İnşaat ERP - .gitignore
+# Tüm monorepo (apps/, packages/) için geçerli
+# ════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────
+# Node.js / npm
+# ─────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+package-lock.json.bak
+
+# ─────────────────────────────────
+# Çıktı / Build klasörleri
+# ─────────────────────────────────
+dist/
+build/
+out/
+.next/
+.nuxt/
+.turbo/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# ─────────────────────────────────
+# Ortam değişkenleri (HASSAS!)
+# ─────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Örnek dosyalar repo'da kalabilir:
+!.env.example
+!.env.sample
+
+# ─────────────────────────────────
+# Loglar
+# ─────────────────────────────────
+logs/
+*.log
+lerna-debug.log*
+
+# ─────────────────────────────────
+# IDE / Editör
+# ─────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ─────────────────────────────────
+# Sistem dosyaları
+# ─────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─────────────────────────────────
+# Test / Coverage
+# ─────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+.jest-cache/
+
+# ─────────────────────────────────
+# Prisma (otomatik üretilen)
+# ─────────────────────────────────
+# Schema kalsın, generated client gitmesin
+**/node_modules/.prisma/
+**/prisma/generated/
+
+# ─────────────────────────────────
+# Geçici / Backup dosyalar
+# ─────────────────────────────────
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.orig
+
+# ─────────────────────────────────
+# Docker
+# ─────────────────────────────────
+# Container içi data volume'ları lokalde tutmuyoruz
+postgres-data/
+redis-data/
+
+# ─────────────────────────────────
+# Yüklenen dosyalar (uploads)
+# ─────────────────────────────────
+uploads/
+public/uploads/
+storage/
+
+# ─────────────────────────────────
+# Sertifikalar / Anahtarlar
+# ─────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ─────────────────────────────────
+# Mac/Linux özel
+# ─────────────────────────────────
+*.AppleDouble
+*.LSOverride

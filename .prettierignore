@@ -1,0 +1,27 @@
+# Build çıktıları
+dist
+build
+out
+.next
+.turbo
+coverage
+
+# Bağımlılıklar
+node_modules
+
+# Otomatik üretilenler
+*.min.js
+*.min.css
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Prisma generated
+**/prisma/generated
+
+# Logs
+*.log
+
+# Statik / yüklenmiş
+public/uploads
+storage
