@@ -29,6 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    // 1. Kullanıcıyı + rolleri + izinleri tek query'de çek
     const user = await this.prisma.user.findFirst({
       where: {
         id: payload.sub,
@@ -43,6 +44,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         firstName: true,
         lastName: true,
         status: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                slug: true,
+                rolePermissions: {
+                  select: {
+                    permission: {
+                      select: {
+                        resource: true,
+                        action: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -50,6 +70,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Geçersiz token veya kullanıcı bulunamadı');
     }
 
-    return user;
+    // 2. Roles ve permissions'ı düz dizi haline getir
+    const roles = user.userRoles.map((ur) => ur.role.slug);
+
+    const permissionsSet = new Set<string>();
+    for (const ur of user.userRoles) {
+      for (const rp of ur.role.rolePermissions) {
+        permissionsSet.add(`${rp.permission.resource}.${rp.permission.action}`);
+      }
+    }
+    const permissions = Array.from(permissionsSet);
+
+    // 3. req.user olarak controller'a ulaşacak
+    return {
+      id: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      status: user.status,
+      roles,
+      permissions,
+    };
   }
 }

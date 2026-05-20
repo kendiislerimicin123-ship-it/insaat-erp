@@ -29,17 +29,13 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.get('user-agent');
-    return this.authService.login(dto, ipAddress, userAgent);
+    return this.authService.login(dto, this.getClientIp(req), req.get('user-agent'));
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.get('user-agent');
-    return this.authService.refresh(dto.refreshToken, ipAddress, userAgent);
+    return this.authService.refresh(dto.refreshToken, this.getClientIp(req), req.get('user-agent'));
   }
 
   @Post('logout')

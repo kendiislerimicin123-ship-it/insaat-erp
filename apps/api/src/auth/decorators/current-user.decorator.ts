@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   firstName: string;
   lastName: string;
   status: string;
+  roles: string[];
+  permissions: string[];
 }
 
 export const CurrentUser = createParamDecorator(

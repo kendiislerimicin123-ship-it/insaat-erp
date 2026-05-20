@@ -48,30 +48,48 @@ export class AuthService {
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
-        const tenant = await tx.tenant.create({
-          data: {
-            name: dto.companyName,
-            slug: dto.companySlug,
-            taxNumber: dto.taxNumber,
-            email: dto.email,
-            status: 'TRIAL',
-          },
-        });
+  const tenant = await tx.tenant.create({
+    data: {
+      name: dto.companyName,
+      slug: dto.companySlug,
+      taxNumber: dto.taxNumber,
+      email: dto.email,
+      status: 'TRIAL',
+    },
+  });
 
-        const user = await tx.user.create({
-          data: {
-            tenantId: tenant.id,
-            email: dto.email,
-            password: hashedPassword,
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            phone: dto.phone,
-            status: 'ACTIVE',
-          },
-        });
+  const user = await tx.user.create({
+    data: {
+      tenantId: tenant.id,
+      email: dto.email,
+      password: hashedPassword,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      status: 'ACTIVE',
+    },
+  });
 
-        return { tenant, user };
-      });
+  // İlk kullanıcıya otomatik COMPANY_ADMIN rolü ata
+  const companyAdminRole = await tx.role.findFirst({
+    where: {
+      slug: 'COMPANY_ADMIN',
+      isSystem: true,
+      tenantId: null,
+    },
+  });
+
+  if (companyAdminRole) {
+    await tx.userRole.create({
+      data: {
+        userId: user.id,
+        roleId: companyAdminRole.id,
+      },
+    });
+  }
+
+  return { tenant, user };
+});
 
       this.logger.log(
         `✅ Yeni firma kaydı: ${result.tenant.name} (${result.tenant.slug}) | User: ${result.user.email}`,
