@@ -31,9 +31,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     this.logger.log('🔌 PostgreSQL bağlantısı kapatıldı');
   }
 
-  /**
-   * DB sağlık kontrolü için basit query
-   */
   async healthCheck(): Promise<{ ok: boolean; latency: number }> {
     const start = Date.now();
     await this.$queryRaw`SELECT 1`;
