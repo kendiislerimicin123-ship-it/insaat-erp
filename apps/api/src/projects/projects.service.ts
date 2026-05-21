@@ -220,4 +220,57 @@ export class ProjectsService {
       id: deleted.id,
     };
   }
+  // ────────────────────────────────────
+  // STATS
+  // ────────────────────────────────────
+  async getStats(tenantId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere = {
+      tenantId,
+      deletedAt: null,
+    };
+
+    const [total, active, planning, completed, onHold, thisMonthCreated] =
+      await Promise.all([
+        this.prisma.project.count({ where: baseWhere }),
+        this.prisma.project.count({ where: { ...baseWhere, status: 'ACTIVE' } }),
+        this.prisma.project.count({ where: { ...baseWhere, status: 'PLANNING' } }),
+        this.prisma.project.count({ where: { ...baseWhere, status: 'COMPLETED' } }),
+        this.prisma.project.count({ where: { ...baseWhere, status: 'ON_HOLD' } }),
+        this.prisma.project.count({
+          where: { ...baseWhere, createdAt: { gte: monthStart } },
+        }),
+      ]);
+
+    // En son 5 proje (anasayfa için)
+    const recentProjects = await this.prisma.project.findMany({
+      where: baseWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        city: true,
+        contractAmount: true,
+        currency: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      total,
+      byStatus: {
+        active,
+        planning,
+        completed,
+        onHold,
+      },
+      thisMonthCreated,
+      recentProjects,
+    };
+  }
 }

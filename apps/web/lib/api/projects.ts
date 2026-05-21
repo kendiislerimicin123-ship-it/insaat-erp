@@ -50,6 +50,27 @@ export interface CreateProjectInput {
   endDate?: string;
 }
 
+export interface ProjectStats {
+  total: number;
+  byStatus: {
+    active: number;
+    planning: number;
+    completed: number;
+    onHold: number;
+  };
+  thisMonthCreated: number;
+  recentProjects: Array<{
+    id: string;
+    code: string;
+    name: string;
+    status: ProjectStatus;
+    city: string | null;
+    contractAmount: string | null;
+    currency: string;
+    createdAt: string;
+  }>;
+}
+
 export interface UpdateProjectInput extends Partial<CreateProjectInput> {
   actualEndDate?: string;
 }
@@ -99,6 +120,11 @@ export const projectsApi = {
     const { data } = await apiClient.delete<{ message: string; id: string }>(
       `/projects/${id}`,
     );
+    return data;
+  },
+  
+  async getStats(): Promise<ProjectStats> {
+    const { data } = await apiClient.get<ProjectStats>('/projects/stats');
     return data;
   },
 };

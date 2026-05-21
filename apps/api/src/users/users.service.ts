@@ -290,6 +290,35 @@ export class UsersService {
 
     return { message: 'Şifre başarıyla değiştirildi' };
   }
+  
+  // ────────────────────────────────────
+  // STATS
+  // ────────────────────────────────────
+  async getStats(tenantId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere = {
+      tenantId,
+      deletedAt: null,
+    };
+
+    const [total, active, inactive, thisMonthCreated] = await Promise.all([
+      this.prisma.user.count({ where: baseWhere }),
+      this.prisma.user.count({ where: { ...baseWhere, status: 'ACTIVE' } }),
+      this.prisma.user.count({ where: { ...baseWhere, status: 'INACTIVE' } }),
+      this.prisma.user.count({
+        where: { ...baseWhere, createdAt: { gte: monthStart } },
+      }),
+    ]);
+
+    return {
+      total,
+      active,
+      inactive,
+      thisMonthCreated,
+    };
+  }
 
   // ────────────────────────────────────
   // YARDIMCI METODLAR

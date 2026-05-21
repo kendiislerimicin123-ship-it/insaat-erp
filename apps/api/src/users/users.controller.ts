@@ -51,6 +51,12 @@ export class UsersController {
     return this.usersService.findAll(user.tenantId, query);
   }
 
+  @Get('stats')
+  @RequirePermissions('user.read')
+  async getStats(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getStats(user.tenantId);
+  }
+
   @Get(':id')
   @RequirePermissions('user.read')
   async findOne(

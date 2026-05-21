@@ -49,6 +49,12 @@ export class ProjectsController {
     return this.projectsService.findAll(user.tenantId, query);
   }
 
+  @Get('stats')
+  @RequirePermissions('project.read')
+  async getStats(@CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.getStats(user.tenantId);
+  }
+
   @Get(':id')
   @RequirePermissions('project.read')
   async findOne(
