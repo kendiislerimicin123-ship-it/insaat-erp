@@ -55,6 +55,8 @@ enum AuditAction {
   PASSWORD_RESET
   PERMISSION_GRANT
   PERMISSION_REVOKE
+  ROLE_ASSIGN
+  ROLE_REVOKE
 
   @@map("audit_action")
 }

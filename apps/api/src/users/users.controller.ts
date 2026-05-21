@@ -20,6 +20,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { AuditLog } from '../audit/decorators/audit-log.decorator';
 import {
   CurrentUser,
   AuthenticatedUser,
@@ -33,6 +34,7 @@ export class UsersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermissions('user.create')
+  @AuditLog({ action: 'CREATE', resource: 'user' })
   async create(
     @CurrentUser() admin: AuthenticatedUser,
     @Body() dto: CreateUserDto,
@@ -60,6 +62,7 @@ export class UsersController {
 
   @Patch(':id')
   @RequirePermissions('user.update')
+  @AuditLog({ action: 'UPDATE', resource: 'user' })
   async update(
     @CurrentUser() admin: AuthenticatedUser,
     @Param('id') id: string,
@@ -70,6 +73,7 @@ export class UsersController {
 
   @Patch(':id/roles')
   @RequirePermissions('role.assign')
+  @AuditLog({ action: 'ROLE_ASSIGN', resource: 'user' })
   async updateRoles(
     @CurrentUser() admin: AuthenticatedUser,
     @Param('id') id: string,
@@ -81,6 +85,7 @@ export class UsersController {
   @Patch(':id/password')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('user.update')
+  @AuditLog({ action: 'PASSWORD_CHANGE', resource: 'user' })
   async changePassword(
     @CurrentUser() admin: AuthenticatedUser,
     @Param('id') id: string,
@@ -92,6 +97,7 @@ export class UsersController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('user.delete')
+  @AuditLog({ action: 'DELETE', resource: 'user' })
   async remove(
     @CurrentUser() admin: AuthenticatedUser,
     @Param('id') id: string,

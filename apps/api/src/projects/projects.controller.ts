@@ -18,6 +18,7 @@ import { ListProjectsDto } from './dto/list-projects.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { AuditLog } from '../audit/decorators/audit-log.decorator';
 import {
   CurrentUser,
   AuthenticatedUser,
@@ -31,6 +32,7 @@ export class ProjectsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermissions('project.create')
+  @AuditLog({ action: 'CREATE', resource: 'project' }) 
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateProjectDto,
@@ -58,6 +60,7 @@ export class ProjectsController {
 
   @Patch(':id')
   @RequirePermissions('project.update')
+  @AuditLog({ action: 'UPDATE', resource: 'project' })
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -69,6 +72,7 @@ export class ProjectsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('project.delete')
+  @AuditLog({ action: 'DELETE', resource: 'project' }) 
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
