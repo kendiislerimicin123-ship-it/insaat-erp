@@ -79,6 +79,7 @@ model Tenant {
   users     User[]
   roles     Role[]
   auditLogs AuditLog[]
+  projects  Project[]
 
   // Audit alanları
   createdAt DateTime  @default(now()) @map("created_at")
@@ -278,4 +279,65 @@ model AuditLog {
   @@index([resource])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: Project (Proje / Şantiye)
+// ════════════════════════════════════════════════════════════
+// İnşaat projesi - ana iş birimi.
+// Her proje bir tenant'a aittir. Taşeronlar, hakediş, stok, 
+// personel hep bu projeye bağlanır.
+// ════════════════════════════════════════════════════════════
+model Project {
+  id          String        @id @default(cuid())
+  tenantId    String        @map("tenant_id")
+  code        String        @db.VarChar(50) // Proje kodu (örn: PRJ-2026-001)
+  name        String        @db.VarChar(255)
+  description String?       @db.Text
+  status      ProjectStatus @default(PLANNING)
+
+  // Lokasyon
+  address  String? @db.Text
+  city     String? @db.VarChar(100)
+  district String? @db.VarChar(100)
+
+  // Müşteri/İşveren
+  clientName      String? @map("client_name") @db.VarChar(255)
+  clientTaxNumber String? @map("client_tax_number") @db.VarChar(20)
+  clientPhone     String? @map("client_phone") @db.VarChar(20)
+  clientEmail     String? @map("client_email") @db.VarChar(255)
+
+  // Bütçe ve süre
+  contractAmount Decimal?  @map("contract_amount") @db.Decimal(18, 2)
+  currency       String    @default("TRY") @db.VarChar(3)
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  actualEndDate  DateTime? @map("actual_end_date") @db.Date
+
+  // İlişkiler (ileride eklenecek: taseronlar, hakedisler, stok, vs.)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Audit
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([tenantId, code]) // Aynı tenant içinde proje kodu eşsiz
+  @@index([tenantId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([startDate])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  PLANNING // Planlama aşamasında
+  ACTIVE // Aktif - inşaat devam ediyor
+  ON_HOLD // Beklemede / durduruldu
+  COMPLETED // Tamamlandı
+  CANCELLED // İptal edildi
+
+  @@map("project_status")
 }

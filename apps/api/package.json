@@ -16,7 +16,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "clean": "rm -rf dist node_modules .turbo"
   },
-  
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
@@ -37,6 +36,7 @@
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.22",
     "@nestjs/jwt": "^10.2.0",
+    "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.22",
     "bcryptjs": "^2.4.3",
