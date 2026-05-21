@@ -26,7 +26,6 @@ export class UsersService {
   // CREATE
   // ────────────────────────────────────
   async create(tenantId: string, creatorUserId: string, dto: CreateUserDto) {
-    // 1. Email çakışma kontrolü (tenant içinde)
     const existing = await this.prisma.user.findFirst({
       where: {
         tenantId,
@@ -38,7 +37,6 @@ export class UsersService {
       throw new ConflictException(`'${dto.email}' bu firma için zaten kayıtlı`);
     }
 
-    // 2. Rolleri DB'den çek (slug'lar geçerli mi?)
     const roles = await this.findRolesBySlug(tenantId, dto.roleSlugs);
     if (roles.length !== dto.roleSlugs.length) {
       const foundSlugs = roles.map((r) => r.slug);
@@ -48,10 +46,8 @@ export class UsersService {
       );
     }
 
-    // 3. Şifre hash
     const hashedPassword = await bcrypt.hash(dto.password, this.BCRYPT_ROUNDS);
 
-    // 4. Transaction: user oluştur + rolleri ata
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -191,7 +187,6 @@ export class UsersService {
   // DELETE (soft)
   // ────────────────────────────────────
   async remove(tenantId: string, deleterUserId: string, id: string) {
-    // Kendi kendini silmeyi engelle
     if (id === deleterUserId) {
       throw new ForbiddenException('Kendi hesabınızı silemezsiniz');
     }
@@ -206,7 +201,6 @@ export class UsersService {
       },
     });
 
-    // Aktif refresh token'ları da iptal et (güvenlik)
     await this.prisma.refreshToken.updateMany({
       where: { userId: id, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -228,7 +222,6 @@ export class UsersService {
   ) {
     await this.findOne(tenantId, id);
 
-    // Yeni rolleri bul
     const roles = await this.findRolesBySlug(tenantId, dto.roleSlugs);
     if (roles.length !== dto.roleSlugs.length) {
       const foundSlugs = roles.map((r) => r.slug);
@@ -238,7 +231,6 @@ export class UsersService {
       );
     }
 
-    // Transaction: eski rolleri sil + yenilerini ekle
     await this.prisma.$transaction(async (tx) => {
       await tx.userRole.deleteMany({ where: { userId: id } });
       await tx.userRole.createMany({
@@ -258,7 +250,7 @@ export class UsersService {
   }
 
   // ────────────────────────────────────
-  // CHANGE PASSWORD (admin tarafından)
+  // CHANGE PASSWORD
   // ────────────────────────────────────
   async changePassword(
     tenantId: string,
@@ -278,7 +270,6 @@ export class UsersService {
       },
     });
 
-    // Tüm refresh token'ları iptal et (güvenlik)
     await this.prisma.refreshToken.updateMany({
       where: { userId: targetUserId, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -290,7 +281,7 @@ export class UsersService {
 
     return { message: 'Şifre başarıyla değiştirildi' };
   }
-  
+
   // ────────────────────────────────────
   // STATS
   // ────────────────────────────────────
@@ -321,6 +312,29 @@ export class UsersService {
   }
 
   // ────────────────────────────────────
+  // AVAILABLE ROLES (form dropdown için)
+  // ────────────────────────────────────
+  async getAvailableRoles(tenantId: string) {
+    return this.prisma.role.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { tenantId },
+          { tenantId: null, isSystem: true },
+        ],
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        isSystem: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  // ────────────────────────────────────
   // YARDIMCI METODLAR
   // ────────────────────────────────────
 
@@ -330,8 +344,8 @@ export class UsersService {
         slug: { in: slugs },
         deletedAt: null,
         OR: [
-          { tenantId }, // Tenant'a özel roller
-          { tenantId: null, isSystem: true }, // Sistem rolleri
+          { tenantId },
+          { tenantId: null, isSystem: true },
         ],
       },
     });

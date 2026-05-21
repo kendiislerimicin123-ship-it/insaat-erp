@@ -57,6 +57,12 @@ export class UsersController {
     return this.usersService.getStats(user.tenantId);
   }
 
+  @Get('roles')
+  @RequirePermissions('user.read')
+  async getAvailableRoles(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getAvailableRoles(user.tenantId);
+  }
+
   @Get(':id')
   @RequirePermissions('user.read')
   async findOne(
