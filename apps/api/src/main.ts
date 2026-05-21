@@ -1,40 +1,40 @@
-import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  const configService = app.get(ConfigService);
+
+  // CORS — Frontend'in backend'e erişebilmesi için
+  app.enableCors({
+    origin: [
+      'http://localhost:3000', // Next.js dev server
+      // Production domain'leri sonra eklenecek
+    ],
+    credentials: true, // Cookies + auth header için
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const configService = app.get(ConfigService);
-  const port = configService.get<number>('API_PORT', 3001);
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
-
-  // Global validation pipe — tüm DTO'lar otomatik validate edilir
+  // Global validation
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      whitelist: true, // DTO'da olmayan alanları sil
+      forbidNonWhitelisted: true, // DTO dışı alan gelirse hata
+      transform: true, // Type'ları otomatik convert et
     }),
   );
 
-  // CORS
-  app.enableCors({
-    origin: corsOrigin,
-    credentials: true,
-  });
-
-  // Global API prefix → tüm endpoint'ler /api ile başlar
+  // API prefix
   app.setGlobalPrefix('api');
 
+  const port = configService.get<number>('PORT', 3001);
   await app.listen(port);
 
-  Logger.log(`🚀 İnşaat ERP API running on http://localhost:${port}/api`, 'Bootstrap');
+  logger.log(`🚀 İnşaat ERP API running on http://localhost:${port}/api`);
 }
 
 bootstrap();
