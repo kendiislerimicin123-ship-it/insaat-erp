@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
+import { ProgressPaymentsModule } from './progress-payments/progress-payments.module';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -25,6 +26,7 @@ import { AppService } from './app.service';
     ProjectsModule,
     UsersModule,
     SubcontractorsModule,
+    ProgressPaymentsModule,
   ],
   controllers: [AppController],
   providers: [

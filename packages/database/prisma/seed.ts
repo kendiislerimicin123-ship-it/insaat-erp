@@ -39,6 +39,14 @@ const PERMISSIONS = [
   { resource: 'subcontractor', action: 'update', description: 'Taşeron düzenleme' },
   { resource: 'subcontractor', action: 'delete', description: 'Taşeron silme' },
 
+  // Hakediş yönetimi (BU YENİ ↓)
+  { resource: 'progress-payment', action: 'create', description: 'Yeni hakediş oluşturma' },
+  { resource: 'progress-payment', action: 'read', description: 'Hakediş görüntüleme' },
+  { resource: 'progress-payment', action: 'update', description: 'Hakediş düzenleme' },
+  { resource: 'progress-payment', action: 'delete', description: 'Hakediş silme' },
+  { resource: 'progress-payment', action: 'approve', description: 'Hakediş onaylama' },
+  { resource: 'progress-payment', action: 'pay', description: 'Hakediş ödeme' },
+
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
 ];
@@ -75,6 +83,12 @@ const SYSTEM_ROLES = [
       'subcontractor.read',
       'subcontractor.update',
       'subcontractor.delete',
+      'progress-payment.create',
+      'progress-payment.read',
+      'progress-payment.update',
+      'progress-payment.delete',
+      'progress-payment.approve',
+      'progress-payment.pay',
       'audit.read',
     ],
   },
@@ -90,6 +104,9 @@ const SYSTEM_ROLES = [
       'project.update',
       'subcontractor.read',
       'subcontractor.update',
+      'progress-payment.create',
+      'progress-payment.read',
+      'progress-payment.update',
     ],
   },
   {
@@ -101,6 +118,7 @@ const SYSTEM_ROLES = [
       'user.read',
       'project.read',
       'subcontractor.read',
+      'progress-payment.read',
     ],
   },
 ];

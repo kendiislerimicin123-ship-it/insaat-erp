@@ -135,6 +135,13 @@ export const subcontractorsApi = {
     );
     return data;
   },
+
+  async listAll(): Promise<Array<{ id: string; code: string; name: string; category: SubcontractorCategory; status: SubcontractorStatus }>> {
+    const { data } = await apiClient.get<{
+      items: Array<{ id: string; code: string; name: string; category: SubcontractorCategory; status: SubcontractorStatus }>;
+    }>('/subcontractors', { params: { limit: 100, status: 'ACTIVE' } });
+    return data.items;
+  },
 };
 
 // ─── Helper'lar ───
@@ -170,4 +177,4 @@ export const SUBCONTRACTOR_STATUS_COLORS: Record<SubcontractorStatus, string> = 
   INACTIVE: 'bg-slate-100 text-slate-700',
   BLACKLISTED: 'bg-red-100 text-red-700',
   ARCHIVED: 'bg-amber-100 text-amber-700',
-};
+};  

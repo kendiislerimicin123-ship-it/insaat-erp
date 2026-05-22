@@ -78,11 +78,12 @@ model Tenant {
   status    TenantStatus @default(TRIAL)
 
   // İlişkiler
-  users          User[]
-  roles          Role[]
-  auditLogs      AuditLog[]
-  projects       Project[]
-  subcontractors Subcontractor[]
+  users            User[]
+  roles            Role[]
+  auditLogs        AuditLog[]
+  projects         Project[]
+  subcontractors   Subcontractor[]
+  progressPayments ProgressPayment[]
 
   // Audit alanları
   createdAt DateTime  @default(now()) @map("created_at")
@@ -318,7 +319,8 @@ model Project {
   actualEndDate  DateTime? @map("actual_end_date") @db.Date
 
   // İlişkiler (ileride eklenecek: taseronlar, hakedisler, stok, vs.)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  progressPayments ProgressPayment[]
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -380,7 +382,8 @@ model Subcontractor {
   notes String? @db.Text
 
   // İlişkiler
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  progressPayments ProgressPayment[]
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -426,4 +429,78 @@ enum SubcontractorStatus {
   ARCHIVED // Arşivlendi
 
   @@map("subcontractor_status")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: ProgressPayment (Hakediş)
+// ════════════════════════════════════════════════════════════
+// Bir taşeronun bir projede yaptığı işin parasal karşılığı.
+// İnşaat ERP'sinin finansal omurgası. Dönem bazlı (aylık genelde),
+// onay süreciyle takip edilir: TASLAK → SUNULDU → ONAYLI → ÖDENDİ
+// ════════════════════════════════════════════════════════════
+model ProgressPayment {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  code     String @db.VarChar(50) // HKD-2026-001
+
+  // İlişkiler (FK)
+  projectId       String @map("project_id")
+  subcontractorId String @map("subcontractor_id")
+
+  // Dönem (genelde aylık: 2026-05)
+  period String @db.VarChar(7) // YYYY-MM format
+
+  // Finansal
+  amount      Decimal @db.Decimal(18, 2) // KDV hariç tutar
+  taxRate     Decimal @default(20) @map("tax_rate") @db.Decimal(5, 2) // KDV oranı %
+  taxAmount   Decimal @map("tax_amount") @db.Decimal(18, 2) // KDV tutarı
+  totalAmount Decimal @map("total_amount") @db.Decimal(18, 2) // Toplam (KDV dahil)
+  currency    String  @default("TRY") @db.VarChar(3)
+
+  // Durum
+  status PaymentStatus @default(DRAFT)
+
+  // İçerik
+  description String? @db.Text // Yapılan işin açıklaması
+  notes       String? @db.Text
+
+  // Tarihler
+  issuedAt      DateTime? @map("issued_at") // Hakediş düzenleme tarihi
+  approvedAt    DateTime? @map("approved_at") // Onay tarihi
+  paidAt        DateTime? @map("paid_at") // Ödeme tarihi
+  paymentMethod String?   @map("payment_method") @db.VarChar(50) // Havale, Çek, Nakit
+  paymentRef    String?   @map("payment_ref") @db.VarChar(255) // İşlem referansı
+
+  // İlişkiler
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  subcontractor Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
+
+  // Audit
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  createdBy  String?   @map("created_by")
+  updatedBy  String?   @map("updated_by")
+  approvedBy String?   @map("approved_by")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([projectId])
+  @@index([subcontractorId])
+  @@index([status])
+  @@index([period])
+  @@index([deletedAt])
+  @@map("progress_payments")
+}
+
+enum PaymentStatus {
+  DRAFT // Taslak
+  SUBMITTED // Sunuldu (onaya gönderildi)
+  APPROVED // Onaylandı (ödemeye hazır)
+  PAID // Ödendi
+  REJECTED // Reddedildi
+  CANCELLED // İptal
+
+  @@map("payment_status")
 }

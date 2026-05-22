@@ -127,6 +127,13 @@ export const projectsApi = {
     const { data } = await apiClient.get<ProjectStats>('/projects/stats');
     return data;
   },
+
+  async listAll(): Promise<Array<{ id: string; code: string; name: string; status: string }>> {
+    const { data } = await apiClient.get<{
+      items: Array<{ id: string; code: string; name: string; status: string }>;
+    }>('/projects', { params: { limit: 100 } });
+    return data.items;
+  },
 };
 
 // ─── Helper'lar ───
