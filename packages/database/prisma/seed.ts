@@ -47,6 +47,31 @@ const PERMISSIONS = [
   { resource: 'progress-payment', action: 'approve', description: 'Hakediş onaylama' },
   { resource: 'progress-payment', action: 'pay', description: 'Hakediş ödeme' },
 
+  // Malzeme yönetimi (BU YENİ ↓)
+  { resource: 'material', action: 'create', description: 'Yeni malzeme oluşturma' },
+  { resource: 'material', action: 'read', description: 'Malzeme görüntüleme' },
+  { resource: 'material', action: 'update', description: 'Malzeme düzenleme' },
+  { resource: 'material', action: 'delete', description: 'Malzeme silme' },
+  { resource: 'material', action: 'movement', description: 'Stok hareketi yapma (giriş/çıkış)' },
+
+  // Cari hesap yönetimi (BU YENİ ↓)
+  { resource: 'contact', action: 'create', description: 'Yeni cari hesap oluşturma' },
+  { resource: 'contact', action: 'read', description: 'Cari hesap görüntüleme' },
+  { resource: 'contact', action: 'update', description: 'Cari hesap düzenleme' },
+  { resource: 'contact', action: 'delete', description: 'Cari hesap silme' },
+
+  // Cari hareket yönetimi (BU YENİ ↓)
+  { resource: 'contact-transaction', action: 'create', description: 'Cari hareket girişi' },
+  { resource: 'contact-transaction', action: 'read', description: 'Cari hareket görüntüleme' },
+  { resource: 'contact-transaction', action: 'delete', description: 'Cari hareket silme' },
+
+// Çek/Senet yönetimi (BU YENİ ↓)
+  { resource: 'cheque', action: 'create', description: 'Yeni çek/senet kaydı' },
+  { resource: 'cheque', action: 'read', description: 'Çek/senet görüntüleme' },
+  { resource: 'cheque', action: 'update', description: 'Çek/senet durum değişimi' },
+  { resource: 'cheque', action: 'delete', description: 'Çek/senet silme' },
+
+
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
 ];
@@ -89,6 +114,22 @@ const SYSTEM_ROLES = [
       'progress-payment.delete',
       'progress-payment.approve',
       'progress-payment.pay',
+      'material.create',
+      'material.read',
+      'material.update',
+      'material.delete',
+      'material.movement',
+      'contact.create',
+      'contact.read',
+      'contact.update',
+      'contact.delete',
+      'contact-transaction.create',
+      'contact-transaction.read',
+      'contact-transaction.delete',
+      'cheque.create',
+      'cheque.read',
+      'cheque.update',
+      'cheque.delete',
       'audit.read',
     ],
   },
@@ -107,6 +148,15 @@ const SYSTEM_ROLES = [
       'progress-payment.create',
       'progress-payment.read',
       'progress-payment.update',
+      'material.read',
+      'material.update',
+      'material.movement',
+      'contact.read',
+      'contact.update',
+      'contact-transaction.create',
+      'contact-transaction.read',
+      'cheque.read',
+      'cheque.update',
     ],
   },
   {
@@ -119,6 +169,10 @@ const SYSTEM_ROLES = [
       'project.read',
       'subcontractor.read',
       'progress-payment.read',
+      'material.read',
+      'contact.read',
+      'contact-transaction.read',
+       'cheque.read', 
     ],
   },
 ];

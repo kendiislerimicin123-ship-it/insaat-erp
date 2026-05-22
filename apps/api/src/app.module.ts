@@ -9,6 +9,10 @@ import { AuditModule } from './audit/audit.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { ProgressPaymentsModule } from './progress-payments/progress-payments.module';
+import { MaterialsModule } from './materials/materials.module';
+import { ContactsModule } from './contacts/contacts.module';
+import { ContactTransactionsModule } from './contact-transactions/contact-transactions.module';
+import { ChequesModule } from './cheques/cheques.module';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -27,6 +31,10 @@ import { AppService } from './app.service';
     UsersModule,
     SubcontractorsModule,
     ProgressPaymentsModule,
+    MaterialsModule,
+    ContactsModule,
+    ContactTransactionsModule,
+    ChequesModule,
   ],
   controllers: [AppController],
   providers: [

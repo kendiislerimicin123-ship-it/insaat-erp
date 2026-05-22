@@ -15,7 +15,10 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard', label: 'Anasayfa', icon: '🏠' },
   { href: '/projects', label: 'Projeler', icon: '🏗️', permission: 'project.read' },
   { href: '/subcontractors', label: 'Taşeronlar', icon: '🔧', permission: 'subcontractor.read' },
+  { href: '/contacts', label: 'Cari Hesaplar', icon: '👥', permission: 'contact.read' },
+  { href: '/cheques', label: 'Çek / Senet', icon: '📋', permission: 'cheque.read' },
   { href: '/progress-payments', label: 'Hakedişler', icon: '💰', permission: 'progress-payment.read' },
+  { href: '/materials', label: 'Malzemeler', icon: '📦', permission: 'material.read' },
   { href: '/users', label: 'Kullanıcılar', icon: '👥', permission: 'user.read' },
   { href: '/audit-logs', label: 'Denetim Kayıtları', icon: '📋', permission: 'audit.read' },
 ];
