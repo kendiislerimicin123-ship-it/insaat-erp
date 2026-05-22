@@ -14,6 +14,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard', label: 'Anasayfa', icon: '🏠' },
   { href: '/projects', label: 'Projeler', icon: '🏗️', permission: 'project.read' },
+  { href: '/subcontractors', label: 'Taşeronlar', icon: '🔧', permission: 'subcontractor.read' },
   { href: '/users', label: 'Kullanıcılar', icon: '👥', permission: 'user.read' },
   { href: '/audit-logs', label: 'Denetim Kayıtları', icon: '📋', permission: 'audit.read' },
 ];

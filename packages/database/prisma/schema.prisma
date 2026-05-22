@@ -78,10 +78,11 @@ model Tenant {
   status    TenantStatus @default(TRIAL)
 
   // İlişkiler
-  users     User[]
-  roles     Role[]
-  auditLogs AuditLog[]
-  projects  Project[]
+  users          User[]
+  roles          Role[]
+  auditLogs      AuditLog[]
+  projects       Project[]
+  subcontractors Subcontractor[]
 
   // Audit alanları
   createdAt DateTime  @default(now()) @map("created_at")
@@ -342,4 +343,87 @@ enum ProjectStatus {
   CANCELLED // İptal edildi
 
   @@map("project_status")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: Subcontractor (Taşeron / Alt Yüklenici)
+// ════════════════════════════════════════════════════════════
+// İnşaat projelerinde işin bir kısmını yapan alt firmalar.
+// Örnek: betoncular, kalıpçılar, demirciler, elektrikçiler, vs.
+// İleride hakediş, sözleşme ve performans takibi için kullanılacak.
+// ════════════════════════════════════════════════════════════
+model Subcontractor {
+  id       String                @id @default(cuid())
+  tenantId String                @map("tenant_id")
+  code     String                @db.VarChar(50)
+  name     String                @db.VarChar(255) // Firma adı
+  category SubcontractorCategory @default(OTHER)
+  status   SubcontractorStatus   @default(ACTIVE)
+
+  // İletişim
+  contactPerson String? @map("contact_person") @db.VarChar(255)
+  phone         String? @db.VarChar(20)
+  email         String? @db.VarChar(255)
+
+  // Adres
+  address  String? @db.Text
+  city     String? @db.VarChar(100)
+  district String? @db.VarChar(100)
+
+  // Resmi bilgiler
+  taxNumber     String? @map("tax_number") @db.VarChar(20)
+  taxOffice     String? @map("tax_office") @db.VarChar(100)
+  tradeRegistry String? @map("trade_registry") @db.VarChar(50)
+  iban          String? @db.VarChar(34)
+
+  // Notlar
+  notes String? @db.Text
+
+  // İlişkiler
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Audit
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([category])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("subcontractors")
+}
+
+enum SubcontractorCategory {
+  EXCAVATION // Hafriyat
+  CONCRETE // Beton
+  FORMWORK // Kalıp
+  REBAR // Demir donatı
+  MASONRY // Duvarcılık
+  PLASTER // Sıva
+  PAINT // Boya
+  TILE // Fayans/seramik
+  ELECTRICAL // Elektrik
+  PLUMBING // Sıhhi tesisat
+  HVAC // Mekanik
+  CARPENTRY // Doğrama
+  ROOFING // Çatı
+  INSULATION // Yalıtım
+  LANDSCAPING // Peyzaj
+  CLEANING // Temizlik
+  OTHER // Diğer
+
+  @@map("subcontractor_category")
+}
+
+enum SubcontractorStatus {
+  ACTIVE // Aktif çalışıyor
+  INACTIVE // Pasif (geçici)
+  BLACKLISTED // Kara liste
+  ARCHIVED // Arşivlendi
+
+  @@map("subcontractor_status")
 }
