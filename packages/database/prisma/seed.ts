@@ -27,11 +27,17 @@ const PERMISSIONS = [
   { resource: 'permission', action: 'read', description: 'İzinleri görüntüleme' },
   { resource: 'permission', action: 'grant', description: 'Role izin verme' },
 
-  // Proje yönetimi (gelecekteki modül)
+  // Proje yönetimi
   { resource: 'project', action: 'create', description: 'Yeni proje oluşturma' },
   { resource: 'project', action: 'read', description: 'Proje görüntüleme' },
   { resource: 'project', action: 'update', description: 'Proje düzenleme' },
   { resource: 'project', action: 'delete', description: 'Proje silme' },
+
+  // Taşeron yönetimi
+  { resource: 'subcontractor', action: 'create', description: 'Yeni taşeron oluşturma' },
+  { resource: 'subcontractor', action: 'read', description: 'Taşeron görüntüleme' },
+  { resource: 'subcontractor', action: 'update', description: 'Taşeron düzenleme' },
+  { resource: 'subcontractor', action: 'delete', description: 'Taşeron silme' },
 
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
@@ -65,6 +71,10 @@ const SYSTEM_ROLES = [
       'project.read',
       'project.update',
       'project.delete',
+      'subcontractor.create',
+      'subcontractor.read',
+      'subcontractor.update',
+      'subcontractor.delete',
       'audit.read',
     ],
   },
@@ -78,6 +88,8 @@ const SYSTEM_ROLES = [
       'project.create',
       'project.read',
       'project.update',
+      'subcontractor.read',
+      'subcontractor.update',
     ],
   },
   {
@@ -88,6 +100,7 @@ const SYSTEM_ROLES = [
       'tenant.read',
       'user.read',
       'project.read',
+      'subcontractor.read',
     ],
   },
 ];
@@ -117,54 +130,38 @@ async function main() {
     allPermissions.map((p) => [`${p.resource}.${p.action}`, p.id]),
   );
 
-  // ─── 3. Sistem rollerini yükle ───
+  // ─── 3. Sistem rollerini yükle (İDEMPOTENT FIX) ───
   console.log('👥 Sistem rolleri yükleniyor...');
   for (const role of SYSTEM_ROLES) {
-    // Sistem rolü için tenantId NULL
-    const createdRole = await prisma.role.upsert({
+    // ✅ FIX: NULL tenantId için upsert kullanılamaz (composite unique işe yaramaz).
+    // findFirst → update OR create pattern'i ile gerçek idempotency sağlıyoruz.
+    const existing = await prisma.role.findFirst({
       where: {
-        tenantId_slug: {
-          tenantId: '', // NULL için boş string trick, aşağıda fix var
-          slug: role.slug,
-        },
-      },
-      update: {
-        name: role.name,
-        description: role.description,
-      },
-      create: {
         slug: role.slug,
-        name: role.name,
-        description: role.description,
-        isSystem: true,
         tenantId: null,
+        isSystem: true,
       },
-    }).catch(async () => {
-      // tenantId null olduğu için upsert sıkıntı çıkarabilir, fallback
-      const existing = await prisma.role.findFirst({
-        where: { slug: role.slug, tenantId: null, isSystem: true },
-      });
+    });
 
-      if (existing) {
-        return prisma.role.update({
+    const createdRole = existing
+      ? await prisma.role.update({
           where: { id: existing.id },
           data: {
             name: role.name,
             description: role.description,
+            // deletedAt'i null'a çek — yanlışlıkla soft-delete olmuşsa düzelt
+            deletedAt: null,
+          },
+        })
+      : await prisma.role.create({
+          data: {
+            slug: role.slug,
+            name: role.name,
+            description: role.description,
+            isSystem: true,
+            tenantId: null,
           },
         });
-      }
-
-      return prisma.role.create({
-        data: {
-          slug: role.slug,
-          name: role.name,
-          description: role.description,
-          isSystem: true,
-          tenantId: null,
-        },
-      });
-    });
 
     // ─── 4. Role izinleri ata ───
     const permissionsToGrant =
@@ -174,7 +171,7 @@ async function main() {
             .map((key) => permissionMap.get(key))
             .filter((id): id is string => Boolean(id));
 
-    // Eski izinleri temizle (idempotent için)
+    // Eski izinleri temizle (her seed'de yenilemek için)
     await prisma.rolePermission.deleteMany({
       where: { roleId: createdRole.id },
     });
@@ -190,8 +187,9 @@ async function main() {
       });
     }
 
+    const action = existing ? 'güncellendi' : 'oluşturuldu';
     console.log(
-      `   ✅ ${role.slug.padEnd(20)} → ${permissionsToGrant.length} izin`,
+      `   ✅ ${role.slug.padEnd(20)} → ${permissionsToGrant.length} izin (${action})`,
     );
   }
 
@@ -200,7 +198,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error('❌ Seed hatası:', e);
+    console.error('❌ Seed başarısız:', e);
     process.exit(1);
   })
   .finally(async () => {
