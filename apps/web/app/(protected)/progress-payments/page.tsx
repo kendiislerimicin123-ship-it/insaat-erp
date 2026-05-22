@@ -115,7 +115,6 @@ export default function ProgressPaymentsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Hakedişler</h1>
@@ -135,7 +134,7 @@ export default function ProgressPaymentsPage() {
         )}
       </div>
 
-      {/* Summary Card */}
+      {/* Summary Cards */}
       {total > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <SummaryCard
@@ -252,9 +251,7 @@ export default function ProgressPaymentsPage() {
                       <p className="font-bold text-slate-900">
                         {formatCurrency(p.totalAmount, p.currency)}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        KDV dahil
-                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">KDV dahil</p>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -343,7 +340,6 @@ export default function ProgressPaymentsPage() {
         )}
       </div>
 
-      {/* Modals */}
       <ProgressPaymentFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
