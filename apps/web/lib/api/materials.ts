@@ -45,7 +45,13 @@ export interface MaterialMovement {
   invoiceNo: string | null;
   notes: string | null;
   createdAt: string;
-  material: { id: string; code: string; name: string; unit: MaterialUnit };
+  material: {
+    id: string;
+    code: string;
+    name: string;
+    unit: MaterialUnit;
+    category?: MaterialCategory;
+  };
   project: { id: string; code: string; name: string } | null;
 }
 
@@ -80,6 +86,14 @@ export interface MaterialStats {
   totalMovements: number;
   lowStockCount: number;
   totalStockValue: string;
+}
+
+export interface MovementStats {
+  totalIn: number;
+  totalOut: number;
+  totalCost: string;
+  uniqueSuppliers: number;
+  totalMovements: number;
 }
 
 export const materialsApi = {
@@ -120,12 +134,29 @@ export const materialsApi = {
     return data;
   },
 
-  // Movement methods
-  async listMovements(query: { page?: number; limit?: number; materialId?: string; projectId?: string; type?: MovementType; from?: string; to?: string } = {}) {
+  // ─── Movements ───
+  async listMovements(query: {
+    page?: number;
+    limit?: number;
+    materialId?: string;
+    projectId?: string;
+    type?: MovementType;
+    from?: string;
+    to?: string;
+    search?: string;
+    supplier?: string;
+  } = {}) {
     const { data } = await apiClient.get<{
       items: MaterialMovement[];
       pagination: { page: number; limit: number; total: number; totalPages: number };
     }>('/materials/movements', { params: query });
+    return data;
+  },
+
+  async getMovementStats(from?: string, to?: string): Promise<MovementStats> {
+    const { data } = await apiClient.get<MovementStats>('/materials/movements/stats', {
+      params: { from, to },
+    });
     return data;
   },
 
@@ -143,9 +174,16 @@ export const materialsApi = {
     );
     return data;
   },
+
+  async removeMovementsBulk(ids: string[]): Promise<{ message: string; total: number; success: number }> {
+    const { data } = await apiClient.post<{ message: string; total: number; success: number }>(
+      '/materials/movements/bulk-delete',
+      { ids },
+    );
+    return data;
+  },
 };
 
-// ─── Helper'lar ───
 export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   CEMENT: 'Çimento',
   AGGREGATE: 'Agrega (Kum/Çakıl)',
@@ -188,6 +226,12 @@ export const MOVEMENT_TYPE_COLORS: Record<MovementType, string> = {
   IN: 'bg-emerald-100 text-emerald-700',
   OUT: 'bg-red-100 text-red-700',
   ADJUSTMENT: 'bg-amber-100 text-amber-700',
+};
+
+export const MOVEMENT_TYPE_ROW_COLORS: Record<MovementType, string> = {
+  IN: 'bg-emerald-50/40 hover:bg-emerald-50',
+  OUT: 'bg-red-50/40 hover:bg-red-50',
+  ADJUSTMENT: 'bg-amber-50/40 hover:bg-amber-50',
 };
 
 export function formatStock(value: string | number, unit: MaterialUnit): string {

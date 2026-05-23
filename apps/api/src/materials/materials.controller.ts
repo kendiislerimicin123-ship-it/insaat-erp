@@ -70,6 +70,16 @@ export class MaterialsController {
     return this.materialsService.findMovements(user.tenantId, query);
   }
 
+  @Get('movements/stats')
+  @RequirePermissions('material.read')
+  async getMovementStats(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.materialsService.getMovementStats(user.tenantId, from, to);
+  }
+
   @Post('movements')
   @HttpCode(HttpStatus.CREATED)
   @RequirePermissions('material.movement')
@@ -79,6 +89,17 @@ export class MaterialsController {
     @Body() dto: CreateMovementDto,
   ) {
     return this.materialsService.createMovement(user.tenantId, user.id, dto);
+  }
+
+  @Post('movements/bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('material.movement')
+  @AuditLog({ action: 'DELETE', resource: 'material-movement' })
+  async removeMovementsBulk(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { ids: string[] },
+  ) {
+    return this.materialsService.removeMovementsBulk(user.tenantId, user.id, body.ids);
   }
 
   @Delete('movements/:id')

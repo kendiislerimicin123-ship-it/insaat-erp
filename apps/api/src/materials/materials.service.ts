@@ -78,8 +78,6 @@ export class MaterialsService {
       ];
     }
 
-    // lowStock filter: currentStock <= minStock
-    // Prisma raw bunu desteklemiyor, JS tarafında filtreleyeceğiz
     const [items, total] = await Promise.all([
       this.prisma.material.findMany({
         where,
@@ -171,7 +169,6 @@ export class MaterialsService {
   async remove(tenantId: string, userId: string, id: string) {
     const material = await this.findOne(tenantId, id);
 
-    // Aktif hareket var mı?
     const movementCount = await this.prisma.materialMovement.count({
       where: { materialId: id, deletedAt: null },
     });
@@ -204,7 +201,6 @@ export class MaterialsService {
     userId: string,
     dto: CreateMovementDto,
   ) {
-    // Malzeme bu tenant'a mı ait?
     const material = await this.prisma.material.findFirst({
       where: { id: dto.materialId, tenantId, deletedAt: null },
     });
@@ -212,7 +208,6 @@ export class MaterialsService {
       throw new BadRequestException(`Malzeme bulunamadı: ${dto.materialId}`);
     }
 
-    // Proje varsa kontrol
     if (dto.projectId) {
       const project = await this.prisma.project.findFirst({
         where: { id: dto.projectId, tenantId, deletedAt: null },
@@ -225,38 +220,32 @@ export class MaterialsService {
     const quantity = new Prisma.Decimal(dto.quantity);
     const currentStock = new Prisma.Decimal(material.currentStock.toString());
 
-    // OUT için stok yeterli mi?
     if (dto.type === 'OUT' && currentStock.lessThan(quantity)) {
       throw new BadRequestException(
         `Yetersiz stok. Mevcut: ${currentStock.toString()} ${material.unit}, İstenen: ${quantity.toString()}`,
       );
     }
 
-    // Hesaplar
     const unitPrice = dto.unitPrice
       ? new Prisma.Decimal(dto.unitPrice)
       : null;
     const totalPrice = unitPrice ? unitPrice.mul(quantity) : null;
 
-    // Yeni stok seviyesi
     let newStock: Prisma.Decimal;
     if (dto.type === 'IN') {
       newStock = currentStock.add(quantity);
     } else if (dto.type === 'OUT') {
       newStock = currentStock.sub(quantity);
     } else {
-      // ADJUSTMENT: quantity yeni stok değeri olarak alınır
       newStock = quantity;
     }
 
-    // Ortalama fiyat hesabı (sadece IN için, weighted average)
     let newAvgPrice = new Prisma.Decimal(material.avgPrice.toString());
     let lastPurchasePrice = material.lastPurchasePrice
       ? new Prisma.Decimal(material.lastPurchasePrice.toString())
       : null;
 
     if (dto.type === 'IN' && unitPrice) {
-      // Weighted average: ((oldStock * oldAvg) + (newQty * newPrice)) / newStock
       const oldStockVal = currentStock.mul(newAvgPrice);
       const newPurchaseVal = quantity.mul(unitPrice);
       if (newStock.greaterThan(0)) {
@@ -265,7 +254,6 @@ export class MaterialsService {
       lastPurchasePrice = unitPrice;
     }
 
-    // TRANSACTION: movement + material atomik
     const result = await this.prisma.$transaction(async (tx) => {
       const movement = await tx.materialMovement.create({
         data: {
@@ -330,6 +318,26 @@ export class MaterialsService {
       if (query.to) where.date.lte = new Date(query.to);
     }
 
+    if (query.supplier) {
+      where.supplier = { contains: query.supplier, mode: 'insensitive' };
+    }
+
+    if (query.search) {
+      where.OR = [
+        { invoiceNo: { contains: query.search, mode: 'insensitive' } },
+        { supplier: { contains: query.search, mode: 'insensitive' } },
+        { notes: { contains: query.search, mode: 'insensitive' } },
+        {
+          material: {
+            OR: [
+              { code: { contains: query.search, mode: 'insensitive' } },
+              { name: { contains: query.search, mode: 'insensitive' } },
+            ],
+          },
+        },
+      ];
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.materialMovement.findMany({
         where,
@@ -337,7 +345,7 @@ export class MaterialsService {
         take: limit,
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
         include: {
-          material: { select: { id: true, code: true, name: true, unit: true } },
+          material: { select: { id: true, code: true, name: true, unit: true, category: true } },
           project: { select: { id: true, code: true, name: true } },
         },
       }),
@@ -355,6 +363,50 @@ export class MaterialsService {
     };
   }
 
+  async getMovementStats(tenantId: string, from?: string, to?: string) {
+    const where: Prisma.MaterialMovementWhereInput = {
+      tenantId,
+      deletedAt: null,
+    };
+
+    if (from || to) {
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to);
+    } else {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      where.date = { gte: startOfMonth, lte: endOfMonth };
+    }
+
+    const [inMovements, outMovements, totalCount, suppliers] = await Promise.all([
+      this.prisma.materialMovement.aggregate({
+        where: { ...where, type: 'IN' },
+        _sum: { totalPrice: true },
+        _count: true,
+      }),
+      this.prisma.materialMovement.aggregate({
+        where: { ...where, type: 'OUT' },
+        _count: true,
+      }),
+      this.prisma.materialMovement.count({ where }),
+      this.prisma.materialMovement.findMany({
+        where: { ...where, type: 'IN', supplier: { not: null } },
+        select: { supplier: true },
+        distinct: ['supplier'],
+      }),
+    ]);
+
+    return {
+      totalIn: inMovements._count,
+      totalOut: outMovements._count,
+      totalCost: inMovements._sum?.totalPrice?.toString() ?? '0',
+      uniqueSuppliers: suppliers.length,
+      totalMovements: totalCount,
+    };
+  }
+
   async removeMovement(tenantId: string, userId: string, id: string) {
     const movement = await this.prisma.materialMovement.findFirst({
       where: { id, tenantId, deletedAt: null },
@@ -364,7 +416,6 @@ export class MaterialsService {
       throw new NotFoundException(`Stok hareketi bulunamadı: ${id}`);
     }
 
-    // TRANSACTION: hareketi sil + material stokunu geri al
     await this.prisma.$transaction(async (tx) => {
       const material = await tx.material.findUnique({
         where: { id: movement.materialId },
@@ -382,7 +433,7 @@ export class MaterialsService {
       } else if (movement.type === 'OUT') {
         newStock = currentStock.add(quantity);
       } else {
-        newStock = currentStock; // ADJUSTMENT için geri alma karmaşık, dokunma
+        newStock = currentStock;
       }
 
       await tx.material.update({
@@ -407,8 +458,47 @@ export class MaterialsService {
     return { message: 'Stok hareketi silindi', id };
   }
 
+  async removeMovementsBulk(tenantId: string, userId: string, ids: string[]) {
+    if (ids.length === 0) {
+      throw new BadRequestException('En az bir hareket seçilmelidir');
+    }
+    if (ids.length > 50) {
+      throw new BadRequestException('Tek seferde en fazla 50 hareket silinebilir');
+    }
+
+    const movements = await this.prisma.materialMovement.findMany({
+      where: {
+        id: { in: ids },
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    if (movements.length === 0) {
+      throw new NotFoundException('Geçerli hareket bulunamadı');
+    }
+
+    let successCount = 0;
+    for (const movement of movements) {
+      try {
+        await this.removeMovement(tenantId, userId, movement.id);
+        successCount++;
+      } catch (error) {
+        this.logger.warn(`Hareket silinemedi: ${movement.id} - ${error}`);
+      }
+    }
+
+    this.logger.log(`🗑️  Toplu silme: ${successCount}/${ids.length} hareket silindi`);
+
+    return {
+      message: `${successCount} hareket silindi`,
+      total: ids.length,
+      success: successCount,
+    };
+  }
+
   // ════════════════════════════════════
-  // STATS
+  // STATS (Malzeme genel)
   // ════════════════════════════════════
   async getStats(tenantId: string) {
     const baseWhere = { tenantId, deletedAt: null };
@@ -426,7 +516,6 @@ export class MaterialsService {
       }),
     ]);
 
-    // Toplam stok değeri ve kritik stok sayısı
     let totalStockValue = new Prisma.Decimal(0);
     let lowStockCount = 0;
 

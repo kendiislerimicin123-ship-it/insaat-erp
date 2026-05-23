@@ -90,4 +90,12 @@ export class ListMovementsDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  supplier?: string;
 }
