@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -28,9 +29,8 @@ export default function SubcontractorsPage() {
   const [limit] = useState(20);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<SubcontractorStatus | ''>('');
   const [categoryFilter, setCategoryFilter] = useState<SubcontractorCategory | ''>('');
+  const [statusFilter, setStatusFilter] = useState<SubcontractorStatus | ''>('');
 
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<Subcontractor | null>(null);
@@ -40,15 +40,14 @@ export default function SubcontractorsPage() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await subcontractorsApi.list({
+      const data = await subcontractorsApi.list({
         page,
         limit,
-        search: search || undefined,
-        status: statusFilter || undefined,
         category: categoryFilter || undefined,
+        status: statusFilter || undefined,
       });
-      setItems(response.items);
-      setTotal(response.pagination.total);
+      setItems(data.items);
+      setTotal(data.pagination.total);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         toast.error(
@@ -59,7 +58,7 @@ export default function SubcontractorsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, limit, search, statusFilter, categoryFilter]);
+  }, [page, limit, categoryFilter, statusFilter]);
 
   useEffect(() => {
     load();
@@ -111,23 +110,13 @@ export default function SubcontractorsPage() {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
         <div className="flex flex-col md:flex-row gap-3">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="🔍 Kod, isim, yetkili, vergi no ara..."
-            className="input flex-1"
-          />
           <select
             value={categoryFilter}
             onChange={(e) => {
               setCategoryFilter(e.target.value as SubcontractorCategory | '');
               setPage(1);
             }}
-            className="input md:w-48"
+            className="input md:w-56"
           >
             <option value="">Tüm Kategoriler</option>
             {Object.entries(SUBCONTRACTOR_CATEGORY_LABELS).map(([key, label]) => (
@@ -192,7 +181,12 @@ export default function SubcontractorsPage() {
                 {items.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-900">{s.code}</td>
-                    <td className="px-4 py-3 text-slate-700">{s.name}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-slate-900">{s.name}</p>
+                      {s.taxNumber && (
+                        <p className="text-xs text-slate-500 mt-0.5">V.No: {s.taxNumber}</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-700">
                       {SUBCONTRACTOR_CATEGORY_LABELS[s.category]}
                     </td>
@@ -208,6 +202,12 @@ export default function SubcontractorsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/subcontractors/${s.id}`}
+                          className="text-blue-700 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50"
+                        >
+                          📋 Detay
+                        </Link>
                         {canUpdate && (
                           <button
                             onClick={() => {
@@ -268,7 +268,7 @@ export default function SubcontractorsPage() {
       <ConfirmDialog
         open={!!deleteItem}
         title="Taşeronu sil"
-        message={`'${deleteItem?.name}' firmasını silmek üzeresiniz. Bu işlem geri alınamaz.`}
+        message={`'${deleteItem?.name}' taşeronunu silmek üzeresiniz.`}
         confirmText="Sil"
         variant="danger"
         loading={deleting}

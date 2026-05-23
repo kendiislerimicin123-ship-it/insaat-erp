@@ -71,6 +71,19 @@ const PERMISSIONS = [
   { resource: 'cheque', action: 'update', description: 'Çek/senet durum değişimi' },
   { resource: 'cheque', action: 'delete', description: 'Çek/senet silme' },
 
+  // İşçi / Ekip yönetimi (BU YENİ ↓)
+  { resource: 'employee', action: 'create', description: 'Yeni işçi/ekip üyesi ekleme' },
+  { resource: 'employee', action: 'read', description: 'İşçi/ekip görüntüleme' },
+  { resource: 'employee', action: 'update', description: 'İşçi/ekip düzenleme' },
+  { resource: 'employee', action: 'delete', description: 'İşçi/ekip silme' },
+
+  // Puantaj yönetimi (BU YENİ ↓)
+  { resource: 'timesheet', action: 'create', description: 'Yeni puantaj girişi' },
+  { resource: 'timesheet', action: 'read', description: 'Puantaj görüntüleme' },
+  { resource: 'timesheet', action: 'update', description: 'Puantaj düzenleme' },
+  { resource: 'timesheet', action: 'delete', description: 'Puantaj silme' },
+  { resource: 'timesheet', action: 'approve', description: 'Puantaj onaylama' },
+
 
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
@@ -130,6 +143,17 @@ const SYSTEM_ROLES = [
       'cheque.read',
       'cheque.update',
       'cheque.delete',
+      // İşçi (BU YENİ ↓)
+      'employee.create',
+      'employee.read',
+      'employee.update',
+      'employee.delete',
+      // Puantaj (BU YENİ ↓)
+      'timesheet.create',
+      'timesheet.read',
+      'timesheet.update',
+      'timesheet.delete',
+      'timesheet.approve',
       'audit.read',
     ],
   },
@@ -157,6 +181,15 @@ const SYSTEM_ROLES = [
       'contact-transaction.read',
       'cheque.read',
       'cheque.update',
+      // İşçi (BU YENİ ↓)
+      'employee.create',
+      'employee.read',
+      'employee.update',
+      // Puantaj (BU YENİ ↓)
+      'timesheet.create',
+      'timesheet.read',
+      'timesheet.update',
+      'timesheet.approve',
     ],
   },
   {
@@ -173,6 +206,8 @@ const SYSTEM_ROLES = [
       'contact.read',
       'contact-transaction.read',
        'cheque.read', 
+       'employee.read',          // ← BU YENİ
+      'timesheet.read',         // ← BU YENİ
     ],
   },
 ];

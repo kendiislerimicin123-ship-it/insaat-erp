@@ -78,17 +78,20 @@ model Tenant {
   status    TenantStatus @default(TRIAL)
 
   // İlişkiler
-  users               User[]
-  roles               Role[]
-  auditLogs           AuditLog[]
-  projects            Project[]
-  subcontractors      Subcontractor[]
-  progressPayments    ProgressPayment[]
-  materials           Material[]
-  materialMovements   MaterialMovement[]
-  contacts            Contact[]
-  contactTransactions ContactTransaction[]
-  cheques             Cheque[]
+  users                  User[]
+  roles                  Role[]
+  auditLogs              AuditLog[]
+  projects               Project[]
+  subcontractors         Subcontractor[]
+  progressPayments       ProgressPayment[]
+  materials              Material[]
+  materialMovements      MaterialMovement[]
+  contacts               Contact[]
+  contactTransactions    ContactTransaction[]
+  cheques                Cheque[]
+  subcontractorEmployees SubcontractorEmployee[] // ← BU YENİ
+  timesheetEntries       TimesheetEntry[] // ← BU YENİ
+  timesheetEntryDetails  TimesheetEntryDetail[] // ← BU YENİ
 
   // Audit alanları
   createdAt DateTime  @default(now()) @map("created_at")
@@ -327,6 +330,7 @@ model Project {
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   progressPayments  ProgressPayment[]
   materialMovements MaterialMovement[]
+  timesheetEntries  TimesheetEntry[] // ← BU YENİ
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -388,8 +392,10 @@ model Subcontractor {
   notes String? @db.Text
 
   // İlişkiler
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   progressPayments ProgressPayment[]
+  employees        SubcontractorEmployee[] // ← BU YENİ
+  timesheetEntries TimesheetEntry[] // ← BU YENİ
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -889,4 +895,172 @@ enum ChequeStatus {
   CANCELLED // İptal
 
   @@map("cheque_status")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: SubcontractorEmployee (Taşeron İşçisi / Ekip Üyesi)
+// ════════════════════════════════════════════════════════════
+// Her taşerona bağlı işçi/usta listesi.
+// Puantaj kayıtlarında her işçi ayrı satır olarak girilir.
+// ════════════════════════════════════════════════════════════
+model SubcontractorEmployee {
+  id              String @id @default(cuid())
+  tenantId        String @map("tenant_id")
+  subcontractorId String @map("subcontractor_id")
+
+  name  String  @db.VarChar(255)
+  tcNo  String? @map("tc_no") @db.VarChar(11)
+  phone String? @db.VarChar(20)
+
+  specialty EmployeeSpecialty @default(LABORER)
+  role      String?           @db.VarChar(100) // Serbest metin (Demirci, Sıvacı, vs.)
+  dailyWage Decimal           @default(0) @map("daily_wage") @db.Decimal(18, 2)
+  currency  String            @default("TRY") @db.VarChar(3)
+
+  startDate DateTime?      @map("start_date")
+  endDate   DateTime?      @map("end_date")
+  status    EmployeeStatus @default(ACTIVE)
+
+  notes String? @db.Text
+
+  // İlişkiler
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subcontractor    Subcontractor          @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  timesheetDetails TimesheetEntryDetail[]
+
+  // Audit
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  @@index([tenantId])
+  @@index([subcontractorId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("subcontractor_employees")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: TimesheetEntry (Günlük Puantaj Başlığı)
+// ════════════════════════════════════════════════════════════
+// Bir taşeronun, bir günde, bir projedeki çalışmasını temsil eder.
+// Detaylar (hangi işçi kaç saat) TimesheetEntryDetail tablosunda.
+// ════════════════════════════════════════════════════════════
+model TimesheetEntry {
+  id              String @id @default(cuid())
+  tenantId        String @map("tenant_id")
+  subcontractorId String @map("subcontractor_id")
+  projectId       String @map("project_id")
+
+  date            DateTime // Puantaj tarihi
+  workDescription String?  @map("work_description") @db.Text
+  approvedBy      String?  @map("approved_by") @db.VarChar(255)
+
+  status TimesheetStatus @default(DRAFT)
+
+  // Otomatik hesaplananlar (detaylardan)
+  totalAmount   Decimal @default(0) @map("total_amount") @db.Decimal(18, 2)
+  employeeCount Int     @default(0) @map("employee_count")
+  totalHours    Decimal @default(0) @map("total_hours") @db.Decimal(10, 2)
+  currency      String  @default("TRY") @db.VarChar(3)
+
+  notes String? @db.Text
+
+  // İlişkiler
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor          @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  details       TimesheetEntryDetail[]
+
+  // Audit
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  @@index([tenantId])
+  @@index([subcontractorId])
+  @@index([projectId])
+  @@index([date])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("timesheet_entries")
+}
+
+// ════════════════════════════════════════════════════════════
+// MODEL: TimesheetEntryDetail (İşçi Detay Satırı)
+// ════════════════════════════════════════════════════════════
+// Her TimesheetEntry'nin altında, her işçi için bir detay satırı.
+// Saat, ücret, mesai bilgileri burada.
+// ════════════════════════════════════════════════════════════
+model TimesheetEntryDetail {
+  id               String @id @default(cuid())
+  tenantId         String @map("tenant_id")
+  timesheetEntryId String @map("timesheet_entry_id")
+  employeeId       String @map("employee_id")
+
+  // Çalışma
+  absent             Boolean @default(false) // Gelmedi
+  hoursWorked        Decimal @default(8) @map("hours_worked") @db.Decimal(5, 2)
+  dailyWage          Decimal @map("daily_wage") @db.Decimal(18, 2) // Snapshot - o günkü ücret
+  overtimeHours      Decimal @default(0) @map("overtime_hours") @db.Decimal(5, 2)
+  overtimeMultiplier Decimal @default(1.5) @map("overtime_multiplier") @db.Decimal(3, 2)
+
+  // Hesap (otomatik)
+  totalEarning Decimal @default(0) @map("total_earning") @db.Decimal(18, 2)
+
+  notes String? @db.Text
+
+  // İlişkiler
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timesheetEntry TimesheetEntry        @relation(fields: [timesheetEntryId], references: [id], onDelete: Cascade)
+  employee       SubcontractorEmployee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([timesheetEntryId])
+  @@index([employeeId])
+  @@map("timesheet_entry_details")
+}
+
+// ════════════════════════════════════════════════════════════
+// ENUMS
+// ════════════════════════════════════════════════════════════
+
+enum EmployeeSpecialty {
+  FOREMAN // Ustabaşı
+  MASTER // Usta
+  APPRENTICE // Çırak
+  LABORER // Düz işçi
+  OPERATOR // Operatör (makine)
+  DRIVER // Şoför
+  TECHNICIAN // Teknisyen
+  ENGINEER // Mühendis
+  OTHER // Diğer
+
+  @@map("employee_specialty")
+}
+
+enum EmployeeStatus {
+  ACTIVE // Aktif çalışıyor
+  INACTIVE // Geçici durdurma
+  TERMINATED // İşten ayrıldı
+  ARCHIVED // Arşivlendi
+
+  @@map("employee_status")
+}
+
+enum TimesheetStatus {
+  DRAFT // Taslak (düzenleme aşaması)
+  APPROVED // Onaylandı (proje müdürü tarafından)
+  PAID // Ödendi (hakedişe yansıdı)
+  CANCELLED // İptal
+
+  @@map("timesheet_status")
 }

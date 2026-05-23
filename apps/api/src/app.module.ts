@@ -13,6 +13,8 @@ import { MaterialsModule } from './materials/materials.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { ContactTransactionsModule } from './contact-transactions/contact-transactions.module';
 import { ChequesModule } from './cheques/cheques.module';
+import { EmployeesModule } from './employees/employees.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -35,6 +37,8 @@ import { AppService } from './app.service';
     ContactsModule,
     ContactTransactionsModule,
     ChequesModule,
+    EmployeesModule,
+    TimesheetsModule,
   ],
   controllers: [AppController],
   providers: [
