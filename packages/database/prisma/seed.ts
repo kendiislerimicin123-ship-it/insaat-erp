@@ -39,7 +39,7 @@ const PERMISSIONS = [
   { resource: 'subcontractor', action: 'update', description: 'Taşeron düzenleme' },
   { resource: 'subcontractor', action: 'delete', description: 'Taşeron silme' },
 
-  // Hakediş yönetimi (BU YENİ ↓)
+  // Hakediş yönetimi
   { resource: 'progress-payment', action: 'create', description: 'Yeni hakediş oluşturma' },
   { resource: 'progress-payment', action: 'read', description: 'Hakediş görüntüleme' },
   { resource: 'progress-payment', action: 'update', description: 'Hakediş düzenleme' },
@@ -47,43 +47,48 @@ const PERMISSIONS = [
   { resource: 'progress-payment', action: 'approve', description: 'Hakediş onaylama' },
   { resource: 'progress-payment', action: 'pay', description: 'Hakediş ödeme' },
 
-  // Malzeme yönetimi (BU YENİ ↓)
+  // Malzeme yönetimi
   { resource: 'material', action: 'create', description: 'Yeni malzeme oluşturma' },
   { resource: 'material', action: 'read', description: 'Malzeme görüntüleme' },
   { resource: 'material', action: 'update', description: 'Malzeme düzenleme' },
   { resource: 'material', action: 'delete', description: 'Malzeme silme' },
   { resource: 'material', action: 'movement', description: 'Stok hareketi yapma (giriş/çıkış)' },
 
-  // Cari hesap yönetimi (BU YENİ ↓)
+  // Cari hesap yönetimi
   { resource: 'contact', action: 'create', description: 'Yeni cari hesap oluşturma' },
   { resource: 'contact', action: 'read', description: 'Cari hesap görüntüleme' },
   { resource: 'contact', action: 'update', description: 'Cari hesap düzenleme' },
   { resource: 'contact', action: 'delete', description: 'Cari hesap silme' },
 
-  // Cari hareket yönetimi (BU YENİ ↓)
+  // Cari hareket yönetimi
   { resource: 'contact-transaction', action: 'create', description: 'Cari hareket girişi' },
   { resource: 'contact-transaction', action: 'read', description: 'Cari hareket görüntüleme' },
   { resource: 'contact-transaction', action: 'delete', description: 'Cari hareket silme' },
 
-// Çek/Senet yönetimi (BU YENİ ↓)
+  // Çek/Senet yönetimi
   { resource: 'cheque', action: 'create', description: 'Yeni çek/senet kaydı' },
   { resource: 'cheque', action: 'read', description: 'Çek/senet görüntüleme' },
   { resource: 'cheque', action: 'update', description: 'Çek/senet durum değişimi' },
   { resource: 'cheque', action: 'delete', description: 'Çek/senet silme' },
 
-  // İşçi / Ekip yönetimi (BU YENİ ↓)
+  // İşçi / Ekip yönetimi
   { resource: 'employee', action: 'create', description: 'Yeni işçi/ekip üyesi ekleme' },
   { resource: 'employee', action: 'read', description: 'İşçi/ekip görüntüleme' },
   { resource: 'employee', action: 'update', description: 'İşçi/ekip düzenleme' },
   { resource: 'employee', action: 'delete', description: 'İşçi/ekip silme' },
 
-  // Puantaj yönetimi (BU YENİ ↓)
+  // Puantaj yönetimi
   { resource: 'timesheet', action: 'create', description: 'Yeni puantaj girişi' },
   { resource: 'timesheet', action: 'read', description: 'Puantaj görüntüleme' },
   { resource: 'timesheet', action: 'update', description: 'Puantaj düzenleme' },
   { resource: 'timesheet', action: 'delete', description: 'Puantaj silme' },
   { resource: 'timesheet', action: 'approve', description: 'Puantaj onaylama' },
 
+  // Expense (Genel Gider)  ← DOĞRU FORMAT
+  { resource: 'expense', action: 'create', description: 'Genel gider kaydı oluşturma' },
+  { resource: 'expense', action: 'read', description: 'Genel giderleri görüntüleme' },
+  { resource: 'expense', action: 'update', description: 'Genel gider güncelleme' },
+  { resource: 'expense', action: 'delete', description: 'Genel gider silme' },
 
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
@@ -97,7 +102,7 @@ const SYSTEM_ROLES = [
     slug: 'SUPER_ADMIN',
     name: 'Süper Admin',
     description: 'Sistem geneli yönetici, tüm tenantlara erişebilir',
-    permissions: '*', // Tüm izinler
+    permissions: '*',
   },
   {
     slug: 'COMPANY_ADMIN',
@@ -143,17 +148,19 @@ const SYSTEM_ROLES = [
       'cheque.read',
       'cheque.update',
       'cheque.delete',
-      // İşçi (BU YENİ ↓)
       'employee.create',
       'employee.read',
       'employee.update',
       'employee.delete',
-      // Puantaj (BU YENİ ↓)
       'timesheet.create',
       'timesheet.read',
       'timesheet.update',
       'timesheet.delete',
       'timesheet.approve',
+      'expense.create',
+      'expense.read',
+      'expense.update',
+      'expense.delete',
       'audit.read',
     ],
   },
@@ -181,15 +188,15 @@ const SYSTEM_ROLES = [
       'contact-transaction.read',
       'cheque.read',
       'cheque.update',
-      // İşçi (BU YENİ ↓)
       'employee.create',
       'employee.read',
       'employee.update',
-      // Puantaj (BU YENİ ↓)
       'timesheet.create',
       'timesheet.read',
       'timesheet.update',
       'timesheet.approve',
+      'expense.create',
+      'expense.read',
     ],
   },
   {
@@ -205,9 +212,10 @@ const SYSTEM_ROLES = [
       'material.read',
       'contact.read',
       'contact-transaction.read',
-       'cheque.read', 
-       'employee.read',          // ← BU YENİ
-      'timesheet.read',         // ← BU YENİ
+      'cheque.read',
+      'employee.read',
+      'timesheet.read',
+      'expense.read',
     ],
   },
 ];
@@ -237,11 +245,9 @@ async function main() {
     allPermissions.map((p) => [`${p.resource}.${p.action}`, p.id]),
   );
 
-  // ─── 3. Sistem rollerini yükle (İDEMPOTENT FIX) ───
+  // ─── 3. Sistem rollerini yükle (İDEMPOTENT) ───
   console.log('👥 Sistem rolleri yükleniyor...');
   for (const role of SYSTEM_ROLES) {
-    // ✅ FIX: NULL tenantId için upsert kullanılamaz (composite unique işe yaramaz).
-    // findFirst → update OR create pattern'i ile gerçek idempotency sağlıyoruz.
     const existing = await prisma.role.findFirst({
       where: {
         slug: role.slug,
@@ -256,7 +262,6 @@ async function main() {
           data: {
             name: role.name,
             description: role.description,
-            // deletedAt'i null'a çek — yanlışlıkla soft-delete olmuşsa düzelt
             deletedAt: null,
           },
         })
@@ -278,12 +283,10 @@ async function main() {
             .map((key) => permissionMap.get(key))
             .filter((id): id is string => Boolean(id));
 
-    // Eski izinleri temizle (her seed'de yenilemek için)
     await prisma.rolePermission.deleteMany({
       where: { roleId: createdRole.id },
     });
 
-    // Yeni izinleri ekle
     if (permissionsToGrant.length > 0) {
       await prisma.rolePermission.createMany({
         data: permissionsToGrant.map((permissionId) => ({

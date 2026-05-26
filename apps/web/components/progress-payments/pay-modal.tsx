@@ -9,12 +9,20 @@ import { toast } from 'sonner';
 import {
   progressPaymentsApi,
   ProgressPayment,
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   formatCurrency,
 } from '@/lib/api/progress-payments';
 
 const schema = z.object({
-  paymentMethod: z.string().min(1, 'Ödeme yöntemi seçilmeli'),
+  paymentMethod: z.enum(['CASH', 'BANK', 'CHEQUE', 'CREDIT_CARD', 'OTHER'], {
+    errorMap: () => ({ message: 'Ödeme yöntemi seçilmeli' }),
+  }),
   paymentRef: z.string().optional(),
+  // Çek bilgileri — hepsi opsiyonel
+  chequeNo: z.string().optional(),
+  bankName: z.string().optional(),
+  dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -26,29 +34,71 @@ interface Props {
   onSuccess: () => void;
 }
 
+// Bugünden 30 gün sonrası (vade için varsayılan placeholder)
+function getDefaultDueDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split('T')[0];
+}
+
 export function PayModal({ open, payment, onClose, onSuccess }: Props) {
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { paymentMethod: 'Havale/EFT', paymentRef: '' },
+    defaultValues: {
+      paymentMethod: 'BANK',
+      paymentRef: '',
+      chequeNo: '',
+      bankName: '',
+      dueDate: '',
+    },
   });
 
+  // Seçilen ödeme yöntemini izle (çek alanlarını göstermek için)
+  const selectedMethod = watch('paymentMethod');
+  const isCheque = selectedMethod === 'CHEQUE';
+
   useEffect(() => {
-    if (open) reset({ paymentMethod: 'Havale/EFT', paymentRef: '' });
+    if (open) {
+      reset({
+        paymentMethod: 'BANK',
+        paymentRef: '',
+        chequeNo: '',
+        bankName: '',
+        dueDate: '',
+      });
+    }
   }, [open, reset]);
 
   const onSubmit = async (data: FormData) => {
     if (!payment) return;
     try {
-      await progressPaymentsApi.pay(payment.id, {
-        paymentMethod: data.paymentMethod,
-        paymentRef: data.paymentRef || undefined,
-      });
-      toast.success(`Hakediş ödendi: ${payment.code}`);
+      // Çek değilse çek alanlarını gönderme
+      const payload =
+        data.paymentMethod === 'CHEQUE'
+          ? {
+              paymentMethod: data.paymentMethod as PaymentMethod,
+              paymentRef: data.paymentRef || undefined,
+              chequeNo: data.chequeNo?.trim() || undefined,
+              bankName: data.bankName?.trim() || undefined,
+              dueDate: data.dueDate || undefined,
+            }
+          : {
+              paymentMethod: data.paymentMethod as PaymentMethod,
+              paymentRef: data.paymentRef || undefined,
+            };
+
+      await progressPaymentsApi.pay(payment.id, payload);
+
+      const message = isCheque
+        ? `Hakediş ödendi (çek): ${payment.code}`
+        : `Hakediş ödendi: ${payment.code}`;
+      toast.success(message);
       onSuccess();
       onClose();
     } catch (error) {
@@ -65,8 +115,8 @@ export function PayModal({ open, payment, onClose, onSuccess }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="px-6 py-4 border-b border-slate-200">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-slate-200 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-900">Hakediş Ödeme</h2>
           <p className="text-sm text-slate-500 mt-0.5">
             {payment.code} • {payment.subcontractor.name}
@@ -90,11 +140,11 @@ export function PayModal({ open, payment, onClose, onSuccess }: Props) {
                 Ödeme Yöntemi *
               </label>
               <select {...register('paymentMethod')} className="input">
-                <option value="Havale/EFT">Havale / EFT</option>
-                <option value="Çek">Çek</option>
-                <option value="Nakit">Nakit</option>
-                <option value="Kredi Kartı">Kredi Kartı</option>
-                <option value="Diğer">Diğer</option>
+                {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((key) => (
+                  <option key={key} value={key}>
+                    {PAYMENT_METHOD_LABELS[key]}
+                  </option>
+                ))}
               </select>
               {errors.paymentMethod && (
                 <p className="text-xs text-red-600 mt-1">{errors.paymentMethod.message}</p>
@@ -107,10 +157,65 @@ export function PayModal({ open, payment, onClose, onSuccess }: Props) {
               </label>
               <input
                 {...register('paymentRef')}
-                placeholder="Banka işlem no, çek no, vs."
+                placeholder="Banka işlem no, dekont no, vs."
                 className="input"
               />
             </div>
+
+            {/* ─── ÇEK BİLGİLERİ (sadece Çek seçilince görünür) ─── */}
+            {isCheque && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <p className="text-sm font-semibold text-blue-900">
+                    Çek Bilgileri
+                  </p>
+                  <span className="text-xs text-blue-700 ml-auto">
+                    (Opsiyonel — boş bırakabilirsiniz)
+                  </span>
+                </div>
+                <p className="text-xs text-blue-700">
+                  Çek/Senet sayfasına otomatik olarak kaydedilecek. Bilgileri doldurmazsanız sistem varsayılan değerlerle kaydeder.
+                </p>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Çek Numarası
+                  </label>
+                  <input
+                    {...register('chequeNo')}
+                    placeholder="Örn: 001234"
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Banka
+                  </label>
+                  <input
+                    {...register('bankName')}
+                    placeholder="Örn: Ziraat Bankası"
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Vade Tarihi
+                  </label>
+                  <input
+                    type="date"
+                    {...register('dueDate')}
+                    placeholder={getDefaultDueDate()}
+                    className="input"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Boş bırakılırsa: bugünden 30 gün sonrası
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg text-xs text-amber-800">
               ⚠️ Ödendi olarak işaretlenen hakediş daha sonra düzenlenemez.

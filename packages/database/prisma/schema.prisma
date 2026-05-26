@@ -89,9 +89,9 @@ model Tenant {
   contacts               Contact[]
   contactTransactions    ContactTransaction[]
   cheques                Cheque[]
-  subcontractorEmployees SubcontractorEmployee[] // ← BU YENİ
-  timesheetEntries       TimesheetEntry[] // ← BU YENİ
-  timesheetEntryDetails  TimesheetEntryDetail[] // ← BU YENİ
+  subcontractorEmployees SubcontractorEmployee[]
+  timesheetEntries       TimesheetEntry[]
+  timesheetEntryDetails  TimesheetEntryDetail[]
 
   // Audit alanları
   createdAt DateTime  @default(now()) @map("created_at")
@@ -148,9 +148,6 @@ model User {
 // ════════════════════════════════════════════════════════════
 // MODEL: Role (Rol)
 // ════════════════════════════════════════════════════════════
-// Sistem genelinde tanımlı roller. Her tenant kendi rollerini
-// kullanabilir veya sistem genel rollerini paylaşabilir.
-// ════════════════════════════════════════════════════════════
 model Role {
   id          String  @id @default(cuid())
   tenantId    String? @map("tenant_id") // null = sistem geneli
@@ -179,13 +176,10 @@ model Role {
 // ════════════════════════════════════════════════════════════
 // MODEL: Permission (İzin)
 // ════════════════════════════════════════════════════════════
-// Sistem genelindeki izinler. Format: resource.action
-// Örnek: user.create, project.delete, hakedis.approve
-// ════════════════════════════════════════════════════════════
 model Permission {
   id          String  @id @default(cuid())
-  resource    String  @db.VarChar(100) // user, project, hakedis
-  action      String  @db.VarChar(50) // create, read, update, delete
+  resource    String  @db.VarChar(100)
+  action      String  @db.VarChar(50)
   description String? @db.Text
 
   // İlişkiler
@@ -239,9 +233,6 @@ model RolePermission {
 // ════════════════════════════════════════════════════════════
 // MODEL: RefreshToken (JWT Refresh Token Yönetimi)
 // ════════════════════════════════════════════════════════════
-// Refresh token'lar DB'de saklanır → iptal edilebilir.
-// Çalınan token'lar bu tablodan silinerek iptal edilebilir.
-// ════════════════════════════════════════════════════════════
 model RefreshToken {
   id        String    @id @default(cuid())
   userId    String    @map("user_id")
@@ -264,16 +255,13 @@ model RefreshToken {
 // ════════════════════════════════════════════════════════════
 // MODEL: AuditLog (Denetim Kaydı)
 // ════════════════════════════════════════════════════════════
-// Sistemdeki TÜM önemli işlemleri kaydeder.
-// Kim, ne, ne zaman, hangi IP'den yaptı.
-// ════════════════════════════════════════════════════════════
 model AuditLog {
   id         String      @id @default(cuid())
   tenantId   String?     @map("tenant_id")
   userId     String?     @map("user_id")
   action     AuditAction
-  resource   String      @db.VarChar(100) // tablo adı
-  resourceId String?     @map("resource_id") // etkilenen kaydın ID'si
+  resource   String      @db.VarChar(100)
+  resourceId String?     @map("resource_id")
   oldValues  Json?       @map("old_values")
   newValues  Json?       @map("new_values")
   ipAddress  String?     @map("ip_address") @db.VarChar(45)
@@ -296,14 +284,10 @@ model AuditLog {
 // ════════════════════════════════════════════════════════════
 // MODEL: Project (Proje / Şantiye)
 // ════════════════════════════════════════════════════════════
-// İnşaat projesi - ana iş birimi.
-// Her proje bir tenant'a aittir. Taşeronlar, hakediş, stok, 
-// personel hep bu projeye bağlanır.
-// ════════════════════════════════════════════════════════════
 model Project {
   id          String        @id @default(cuid())
   tenantId    String        @map("tenant_id")
-  code        String        @db.VarChar(50) // Proje kodu (örn: PRJ-2026-001)
+  code        String        @db.VarChar(50)
   name        String        @db.VarChar(255)
   description String?       @db.Text
   status      ProjectStatus @default(PLANNING)
@@ -326,11 +310,12 @@ model Project {
   endDate        DateTime? @map("end_date") @db.Date
   actualEndDate  DateTime? @map("actual_end_date") @db.Date
 
-  // İlişkiler (ileride eklenecek: taseronlar, hakedisler, stok, vs.)
+  // İlişkiler
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   progressPayments  ProgressPayment[]
   materialMovements MaterialMovement[]
-  timesheetEntries  TimesheetEntry[] // ← BU YENİ
+  timesheetEntries  TimesheetEntry[]
+  expenses          Expense[]
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -339,7 +324,7 @@ model Project {
   createdBy String?   @map("created_by")
   updatedBy String?   @map("updated_by")
 
-  @@unique([tenantId, code]) // Aynı tenant içinde proje kodu eşsiz
+  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([status])
   @@index([deletedAt])
@@ -348,11 +333,11 @@ model Project {
 }
 
 enum ProjectStatus {
-  PLANNING // Planlama aşamasında
-  ACTIVE // Aktif - inşaat devam ediyor
-  ON_HOLD // Beklemede / durduruldu
-  COMPLETED // Tamamlandı
-  CANCELLED // İptal edildi
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
 
   @@map("project_status")
 }
@@ -360,15 +345,11 @@ enum ProjectStatus {
 // ════════════════════════════════════════════════════════════
 // MODEL: Subcontractor (Taşeron / Alt Yüklenici)
 // ════════════════════════════════════════════════════════════
-// İnşaat projelerinde işin bir kısmını yapan alt firmalar.
-// Örnek: betoncular, kalıpçılar, demirciler, elektrikçiler, vs.
-// İleride hakediş, sözleşme ve performans takibi için kullanılacak.
-// ════════════════════════════════════════════════════════════
 model Subcontractor {
   id       String                @id @default(cuid())
   tenantId String                @map("tenant_id")
   code     String                @db.VarChar(50)
-  name     String                @db.VarChar(255) // Firma adı
+  name     String                @db.VarChar(255)
   category SubcontractorCategory @default(OTHER)
   status   SubcontractorStatus   @default(ACTIVE)
 
@@ -394,8 +375,10 @@ model Subcontractor {
   // İlişkiler
   tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   progressPayments ProgressPayment[]
-  employees        SubcontractorEmployee[] // ← BU YENİ
-  timesheetEntries TimesheetEntry[] // ← BU YENİ
+  employees        SubcontractorEmployee[]
+  timesheetEntries TimesheetEntry[]
+  expenses         Expense[]
+  cheques          Cheque[]
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -413,32 +396,32 @@ model Subcontractor {
 }
 
 enum SubcontractorCategory {
-  EXCAVATION // Hafriyat
-  CONCRETE // Beton
-  FORMWORK // Kalıp
-  REBAR // Demir donatı
-  MASONRY // Duvarcılık
-  PLASTER // Sıva
-  PAINT // Boya
-  TILE // Fayans/seramik
-  ELECTRICAL // Elektrik
-  PLUMBING // Sıhhi tesisat
-  HVAC // Mekanik
-  CARPENTRY // Doğrama
-  ROOFING // Çatı
-  INSULATION // Yalıtım
-  LANDSCAPING // Peyzaj
-  CLEANING // Temizlik
-  OTHER // Diğer
+  EXCAVATION
+  CONCRETE
+  FORMWORK
+  REBAR
+  MASONRY
+  PLASTER
+  PAINT
+  TILE
+  ELECTRICAL
+  PLUMBING
+  HVAC
+  CARPENTRY
+  ROOFING
+  INSULATION
+  LANDSCAPING
+  CLEANING
+  OTHER
 
   @@map("subcontractor_category")
 }
 
 enum SubcontractorStatus {
-  ACTIVE // Aktif çalışıyor
-  INACTIVE // Pasif (geçici)
-  BLACKLISTED // Kara liste
-  ARCHIVED // Arşivlendi
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+  ARCHIVED
 
   @@map("subcontractor_status")
 }
@@ -446,42 +429,38 @@ enum SubcontractorStatus {
 // ════════════════════════════════════════════════════════════
 // MODEL: ProgressPayment (Hakediş)
 // ════════════════════════════════════════════════════════════
-// Bir taşeronun bir projede yaptığı işin parasal karşılığı.
-// İnşaat ERP'sinin finansal omurgası. Dönem bazlı (aylık genelde),
-// onay süreciyle takip edilir: TASLAK → SUNULDU → ONAYLI → ÖDENDİ
-// ════════════════════════════════════════════════════════════
 model ProgressPayment {
   id       String @id @default(cuid())
   tenantId String @map("tenant_id")
-  code     String @db.VarChar(50) // HKD-2026-001
+  code     String @db.VarChar(50)
 
   // İlişkiler (FK)
   projectId       String @map("project_id")
   subcontractorId String @map("subcontractor_id")
 
-  // Dönem (genelde aylık: 2026-05)
-  period String @db.VarChar(7) // YYYY-MM format
+  // Dönem
+  period String @db.VarChar(7)
 
   // Finansal
-  amount      Decimal @db.Decimal(18, 2) // KDV hariç tutar
-  taxRate     Decimal @default(20) @map("tax_rate") @db.Decimal(5, 2) // KDV oranı %
-  taxAmount   Decimal @map("tax_amount") @db.Decimal(18, 2) // KDV tutarı
-  totalAmount Decimal @map("total_amount") @db.Decimal(18, 2) // Toplam (KDV dahil)
+  amount      Decimal @db.Decimal(18, 2)
+  taxRate     Decimal @default(20) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount   Decimal @map("tax_amount") @db.Decimal(18, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(18, 2)
   currency    String  @default("TRY") @db.VarChar(3)
 
   // Durum
   status PaymentStatus @default(DRAFT)
 
   // İçerik
-  description String? @db.Text // Yapılan işin açıklaması
+  description String? @db.Text
   notes       String? @db.Text
 
   // Tarihler
-  issuedAt      DateTime? @map("issued_at") // Hakediş düzenleme tarihi
-  approvedAt    DateTime? @map("approved_at") // Onay tarihi
-  paidAt        DateTime? @map("paid_at") // Ödeme tarihi
-  paymentMethod String?   @map("payment_method") @db.VarChar(50) // Havale, Çek, Nakit
-  paymentRef    String?   @map("payment_ref") @db.VarChar(255) // İşlem referansı
+  issuedAt      DateTime?      @map("issued_at")
+  approvedAt    DateTime?      @map("approved_at")
+  paidAt        DateTime?      @map("paid_at")
+  paymentMethod PaymentMethod? @map("payment_method")
+  paymentRef    String?        @map("payment_ref") @db.VarChar(255)
 
   // İlişkiler
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -507,12 +486,12 @@ model ProgressPayment {
 }
 
 enum PaymentStatus {
-  DRAFT // Taslak
-  SUBMITTED // Sunuldu (onaya gönderildi)
-  APPROVED // Onaylandı (ödemeye hazır)
-  PAID // Ödendi
-  REJECTED // Reddedildi
-  CANCELLED // İptal
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PAID
+  REJECTED
+  CANCELLED
 
   @@map("payment_status")
 }
@@ -520,27 +499,22 @@ enum PaymentStatus {
 // ════════════════════════════════════════════════════════════
 // MODEL: Material (Malzeme Kataloğu)
 // ════════════════════════════════════════════════════════════
-// İnşaatta kullanılan malzemelerin master listesi.
-// Çimento, demir, kum, fayans gibi tekrar tekrar alınan kalemler.
-// currentStock değeri, MaterialMovement'lardan otomatik güncellenir.
-// ════════════════════════════════════════════════════════════
 model Material {
   id          String           @id @default(cuid())
   tenantId    String           @map("tenant_id")
-  code        String           @db.VarChar(50) // MAT-001
+  code        String           @db.VarChar(50)
   name        String           @db.VarChar(255)
   category    MaterialCategory @default(OTHER)
-  unit        MaterialUnit     @default(PIECE) // birim
+  unit        MaterialUnit     @default(PIECE)
   description String?          @db.Text
 
-  // Stok bilgileri (otomatik güncellenir)
+  // Stok bilgileri
   currentStock      Decimal  @default(0) @map("current_stock") @db.Decimal(18, 4)
   minStock          Decimal  @default(0) @map("min_stock") @db.Decimal(18, 4)
   avgPrice          Decimal  @default(0) @map("avg_price") @db.Decimal(18, 4)
   lastPurchasePrice Decimal? @map("last_purchase_price") @db.Decimal(18, 4)
   currency          String   @default("TRY") @db.VarChar(3)
 
-  // Notlar
   notes String? @db.Text
 
   // İlişkiler
@@ -564,28 +538,22 @@ model Material {
 // ════════════════════════════════════════════════════════════
 // MODEL: MaterialMovement (Stok Hareketi)
 // ════════════════════════════════════════════════════════════
-// Her giriş/çıkış kayıt altında. Material.currentStock buradan hesaplanır.
-// IN = Satın alma, depo girişi
-// OUT = Şantiyeye sevk, kullanım, sarfiyat
-// ════════════════════════════════════════════════════════════
 model MaterialMovement {
   id         String  @id @default(cuid())
   tenantId   String  @map("tenant_id")
   materialId String  @map("material_id")
-  projectId  String? @map("project_id") // OUT için zorunlu olabilir
+  projectId  String? @map("project_id")
 
   type       MovementType
   quantity   Decimal      @db.Decimal(18, 4)
-  unitPrice  Decimal?     @map("unit_price") @db.Decimal(18, 4) // IN için zorunlu
+  unitPrice  Decimal?     @map("unit_price") @db.Decimal(18, 4)
   totalPrice Decimal?     @map("total_price") @db.Decimal(18, 4)
   currency   String       @default("TRY") @db.VarChar(3)
 
-  // Tarih + Tedarikçi
   date      DateTime
-  supplier  String?  @db.VarChar(255) // IN için (kimden alındı)
+  supplier  String?  @db.VarChar(255)
   invoiceNo String?  @map("invoice_no") @db.VarChar(100)
 
-  // Notlar
   notes String? @db.Text
 
   // İlişkiler
@@ -610,45 +578,45 @@ model MaterialMovement {
 }
 
 enum MaterialCategory {
-  CEMENT // Çimento
-  AGGREGATE // Agrega (kum, çakıl)
-  STEEL // Demir/çelik
-  TIMBER // Kereste
-  BRICK_BLOCK // Tuğla, briket
-  TILE_CERAMIC // Fayans, seramik
-  PAINT_CHEMICAL // Boya, kimyasal
-  ELECTRICAL // Elektrik malzemesi
-  PLUMBING // Sıhhi tesisat malzemesi
-  HVAC // Mekanik malzeme
-  INSULATION // Yalıtım
-  ADHESIVE // Yapıştırıcı, harç
-  HARDWARE // Hırdavat
-  TOOLS // Aletler
-  SAFETY // İş güvenliği
-  OTHER // Diğer
+  CEMENT
+  AGGREGATE
+  STEEL
+  TIMBER
+  BRICK_BLOCK
+  TILE_CERAMIC
+  PAINT_CHEMICAL
+  ELECTRICAL
+  PLUMBING
+  HVAC
+  INSULATION
+  ADHESIVE
+  HARDWARE
+  TOOLS
+  SAFETY
+  OTHER
 
   @@map("material_category")
 }
 
 enum MaterialUnit {
-  PIECE // Adet
-  KG // Kilogram
-  TON // Ton
-  M // Metre
-  M2 // Metrekare
-  M3 // Metreküp
-  LITER // Litre
-  PACKAGE // Paket / Çuval
-  BOX // Kutu
-  ROLL // Rulo
+  PIECE
+  KG
+  TON
+  M
+  M2
+  M3
+  LITER
+  PACKAGE
+  BOX
+  ROLL
 
   @@map("material_unit")
 }
 
 enum MovementType {
-  IN // Stok girişi (satın alma)
-  OUT // Stok çıkışı (kullanım/sevk)
-  ADJUSTMENT // Düzeltme (sayım farkı)
+  IN
+  OUT
+  ADJUSTMENT
 
   @@map("movement_type")
 }
@@ -656,18 +624,11 @@ enum MovementType {
 // ════════════════════════════════════════════════════════════
 // MODEL: Contact (Cari Hesap)
 // ════════════════════════════════════════════════════════════
-// Firmanın çalıştığı tüm dış paydaşlar:
-// - Tedarikçi: bizim aldığımız (çimento, demir satan firma)
-// - Müşteri: bizim sattığımız (proje sahibi, alıcı)
-// - Çift yönlü: hem alıcı hem satıcı (yaygın)
-// Cari hesap bakiyesi: + = bize borçlu, - = biz borçluyuz
-// (Cari Hareket tablosu sonraki sprint'te eklenecek)
-// ════════════════════════════════════════════════════════════
 model Contact {
   id       String        @id @default(cuid())
   tenantId String        @map("tenant_id")
-  code     String        @db.VarChar(50) // CR-001
-  name     String        @db.VarChar(255) // Firma/Kişi adı
+  code     String        @db.VarChar(50)
+  name     String        @db.VarChar(255)
   type     ContactType   @default(SUPPLIER)
   status   ContactStatus @default(ACTIVE)
 
@@ -691,21 +652,20 @@ model Contact {
   bankName      String? @map("bank_name") @db.VarChar(100)
 
   // Cari ayarlar
-  paymentTerms Int?     @map("payment_terms") // Vade gün (örn: 30, 60)
-  creditLimit  Decimal? @map("credit_limit") @db.Decimal(18, 2) // Müşteri için kredi limiti
+  paymentTerms Int?     @map("payment_terms")
+  creditLimit  Decimal? @map("credit_limit") @db.Decimal(18, 2)
   currency     String   @default("TRY") @db.VarChar(3)
 
-  // Bakiye (Cari Hareket tablosu sonra gelecek, şimdilik 0)
-  // İleride cari hareket eklendiğinde otomatik hesaplanacak
+  // Bakiye
   currentBalance Decimal @default(0) @map("current_balance") @db.Decimal(18, 2)
 
-  // Notlar
   notes String? @db.Text
 
   // İlişkiler
   tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions ContactTransaction[]
   cheques      Cheque[]
+  expenses     Expense[]
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -724,39 +684,27 @@ model Contact {
 }
 
 enum ContactType {
-  SUPPLIER // Tedarikçi
-  CUSTOMER // Müşteri (mal sahibi)
-  BOTH // Hem tedarikçi hem müşteri
-  BANK // Banka
-  GOVERNMENT // Vergi dairesi, SGK, vs.
-  OTHER // Diğer
+  SUPPLIER
+  CUSTOMER
+  BOTH
+  BANK
+  GOVERNMENT
+  OTHER
 
   @@map("contact_type")
 }
 
 enum ContactStatus {
-  ACTIVE // Aktif çalışıyor
-  INACTIVE // Pasif
-  BLACKLISTED // Kara liste
-  ARCHIVED // Arşivlendi
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+  ARCHIVED
 
   @@map("contact_status")
 }
 
 // ════════════════════════════════════════════════════════════
 // MODEL: ContactTransaction (Cari Hareket)
-// ════════════════════════════════════════════════════════════
-// Bir carinin tüm finansal hareketleri:
-// - BORC: Bizim ona borçlandığımız (örn: malzeme aldık)
-// - ALACAK: Onun bize borçlandığı (örn: müşteriye iş yaptık)
-// - ODEME: Bizim ona ödediğimiz (cari borcumuz azalır)
-// - TAHSILAT: Ondan tahsil ettiğimiz (cari alacağımız azalır)
-//
-// Bakiye mantığı (Contact.currentBalance):
-//   + (pozitif) = Cari bize borçlu (alacaklıyız)
-//   - (negatif) = Biz cariye borçluyuz
-//
-// Her hareket sonrası Contact.currentBalance otomatik güncellenir.
 // ════════════════════════════════════════════════════════════
 model ContactTransaction {
   id        String @id @default(cuid())
@@ -769,14 +717,14 @@ model ContactTransaction {
 
   // Tarih + Belge
   date        DateTime
-  documentNo  String?  @map("document_no") @db.VarChar(100) // Fatura no, dekont no, vs.
+  documentNo  String?  @map("document_no") @db.VarChar(100)
   description String?  @db.Text
 
   // Ödeme/Tahsilat detayları
-  paymentMethod String? @map("payment_method") @db.VarChar(50)
+  paymentMethod PaymentMethod? @map("payment_method")
   bankReference String? @map("bank_reference") @db.VarChar(255)
 
-  // Bakiye (bu hareketten sonraki bakiye - audit için)
+  // Bakiye
   balanceAfter Decimal @map("balance_after") @db.Decimal(18, 2)
 
   // İlişkiler
@@ -799,10 +747,10 @@ model ContactTransaction {
 }
 
 enum TransactionType {
-  DEBT // BORÇ (biz cariye borçlu hale geldik — bakiye azalır)
-  CREDIT // ALACAK (cari bize borçlu hale geldi — bakiye artar)
-  PAYMENT // ÖDEME (biz cariye ödedik — bakiye artar, borcumuz azalır)
-  COLLECTION // TAHSİLAT (cariden tahsil ettik — bakiye azalır, alacağımız azalır)
+  DEBT
+  CREDIT
+  PAYMENT
+  COLLECTION
 
   @@map("transaction_type")
 }
@@ -812,47 +760,54 @@ enum TransactionType {
 // ════════════════════════════════════════════════════════════
 // Hem çek hem senet aynı tabloda (kind alanı ile ayrım)
 //
-// GELEN ÇEK/SENET (INCOMING):
-//   - Müşteriden tahsilat olarak aldık
-//   - Vadesinde bankada tahsil edilecek
+// GELEN ÇEK/SENET (INCOMING): Müşteriden tahsilat olarak aldık
+// VERİLEN ÇEK/SENET (OUTGOING): Tedarikçi/Taşerona ödeme olarak verdik
 //
-// VERİLEN ÇEK/SENET (OUTGOING):
-//   - Tedarikçiye ödeme olarak verdik
-//   - Vadesinde bankamızdan çekilecek
+// Bağlantı: ya contact'a ya da subcontractor'a (ikisinden biri)
+// Source tracking: Otomatik mi manuel mi?
 // ════════════════════════════════════════════════════════════
 model Cheque {
-  id        String @id @default(cuid())
-  tenantId  String @map("tenant_id")
-  contactId String @map("contact_id")
+  id       String  @id @default(cuid())
+  tenantId String  @map("tenant_id")
 
-  kind      ChequeKind // ÇEK veya SENET
-  direction ChequeDirection // GELEN veya VERILEN
+  // Bağlantı: Cari VEYA Taşeron (en az biri dolu olmalı)
+  contactId       String? @map("contact_id")
+  subcontractorId String? @map("subcontractor_id")
+
+  kind      ChequeKind
+  direction ChequeDirection
 
   // Numara + Banka
-  chequeNo   String  @map("cheque_no") @db.VarChar(50) // çek no veya senet no
+  chequeNo   String  @map("cheque_no") @db.VarChar(50)
   bankName   String? @map("bank_name") @db.VarChar(100)
   bankBranch String? @map("bank_branch") @db.VarChar(100)
-  drawer     String? @db.VarChar(255) // Keşideci (çek sahibi)
+  drawer     String? @db.VarChar(255)
 
   // Finansal
   amount   Decimal @db.Decimal(18, 2)
   currency String  @default("TRY") @db.VarChar(3)
 
   // Tarihler
-  issueDate DateTime @map("issue_date") // Düzenleme/keşide tarihi
-  dueDate   DateTime @map("due_date") // Vade tarihi (KRİTİK)
+  issueDate DateTime @map("issue_date")
+  dueDate   DateTime @map("due_date")
 
   // Durum
   status     ChequeStatus @default(PORTFOLIO)
-  statusDate DateTime?    @map("status_date") // Son durum değişimi
+  statusDate DateTime?    @map("status_date")
   statusNote String?      @map("status_note") @db.Text
 
   // Açıklama
   description String? @db.Text
 
+  // ─── OTOMATİK / KAYNAK BİLGİSİ ───
+  sourceType      ChequeSourceType @default(MANUAL) @map("source_type")
+  sourceId        String?          @map("source_id")
+  isAutoGenerated Boolean          @default(false) @map("is_auto_generated")
+
   // İlişkiler
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  subcontractor Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
 
   // Audit
   createdAt DateTime  @default(now()) @map("created_at")
@@ -861,47 +816,57 @@ model Cheque {
   createdBy String?   @map("created_by")
   updatedBy String?   @map("updated_by")
 
+  @@unique([tenantId, sourceType, sourceId], name: "unique_cheque_source")
   @@index([tenantId])
   @@index([contactId])
+  @@index([subcontractorId])
   @@index([kind])
   @@index([direction])
   @@index([status])
   @@index([dueDate])
+  @@index([sourceType, sourceId])
   @@index([deletedAt])
   @@map("cheques")
 }
 
 enum ChequeKind {
-  CHEQUE // Çek
-  PROMISSORY_NOTE // Senet
+  CHEQUE
+  PROMISSORY_NOTE
 
   @@map("cheque_kind")
 }
 
 enum ChequeDirection {
-  INCOMING // Gelen (müşteriden, portföyde)
-  OUTGOING // Verilen (tedarikçiye, tedavülde)
+  INCOMING
+  OUTGOING
 
   @@map("cheque_direction")
 }
 
 enum ChequeStatus {
-  PORTFOLIO // Portföyde (gelen için: tahsil bekleniyor / verilen için: vadesi yaklaşıyor)
-  ENDORSED // Ciro edildi (başka bir cariye devredildi)
-  DEPOSITED // Bankaya yatırıldı (gelen için)
-  COLLECTED // Tahsil edildi (gelen için: para hesaba geçti)
-  PAID // Ödendi (verilen için: bankamızdan çıktı)
-  BOUNCED // Karşılıksız çıktı
-  CANCELLED // İptal
+  PORTFOLIO
+  ENDORSED
+  DEPOSITED
+  COLLECTED
+  PAID
+  BOUNCED
+  CANCELLED
 
   @@map("cheque_status")
 }
 
+// Kaynak türü — otomatik çek kayıtları için
+enum ChequeSourceType {
+  MANUAL
+  PROGRESS_PAYMENT
+  CONTACT_TRANSACTION
+  EXPENSE
+
+  @@map("cheque_source_type")
+}
+
 // ════════════════════════════════════════════════════════════
-// MODEL: SubcontractorEmployee (Taşeron İşçisi / Ekip Üyesi)
-// ════════════════════════════════════════════════════════════
-// Her taşerona bağlı işçi/usta listesi.
-// Puantaj kayıtlarında her işçi ayrı satır olarak girilir.
+// MODEL: SubcontractorEmployee (Taşeron İşçisi)
 // ════════════════════════════════════════════════════════════
 model SubcontractorEmployee {
   id              String @id @default(cuid())
@@ -913,7 +878,7 @@ model SubcontractorEmployee {
   phone String? @db.VarChar(20)
 
   specialty EmployeeSpecialty @default(LABORER)
-  role      String?           @db.VarChar(100) // Serbest metin (Demirci, Sıvacı, vs.)
+  role      String?           @db.VarChar(100)
   dailyWage Decimal           @default(0) @map("daily_wage") @db.Decimal(18, 2)
   currency  String            @default("TRY") @db.VarChar(3)
 
@@ -945,22 +910,19 @@ model SubcontractorEmployee {
 // ════════════════════════════════════════════════════════════
 // MODEL: TimesheetEntry (Günlük Puantaj Başlığı)
 // ════════════════════════════════════════════════════════════
-// Bir taşeronun, bir günde, bir projedeki çalışmasını temsil eder.
-// Detaylar (hangi işçi kaç saat) TimesheetEntryDetail tablosunda.
-// ════════════════════════════════════════════════════════════
 model TimesheetEntry {
   id              String @id @default(cuid())
   tenantId        String @map("tenant_id")
   subcontractorId String @map("subcontractor_id")
   projectId       String @map("project_id")
 
-  date            DateTime // Puantaj tarihi
+  date            DateTime
   workDescription String?  @map("work_description") @db.Text
   approvedBy      String?  @map("approved_by") @db.VarChar(255)
 
   status TimesheetStatus @default(DRAFT)
 
-  // Otomatik hesaplananlar (detaylardan)
+  // Otomatik hesaplananlar
   totalAmount   Decimal @default(0) @map("total_amount") @db.Decimal(18, 2)
   employeeCount Int     @default(0) @map("employee_count")
   totalHours    Decimal @default(0) @map("total_hours") @db.Decimal(10, 2)
@@ -993,23 +955,18 @@ model TimesheetEntry {
 // ════════════════════════════════════════════════════════════
 // MODEL: TimesheetEntryDetail (İşçi Detay Satırı)
 // ════════════════════════════════════════════════════════════
-// Her TimesheetEntry'nin altında, her işçi için bir detay satırı.
-// Saat, ücret, mesai bilgileri burada.
-// ════════════════════════════════════════════════════════════
 model TimesheetEntryDetail {
   id               String @id @default(cuid())
   tenantId         String @map("tenant_id")
   timesheetEntryId String @map("timesheet_entry_id")
   employeeId       String @map("employee_id")
 
-  // Çalışma
-  absent             Boolean @default(false) // Gelmedi
+  absent             Boolean @default(false)
   hoursWorked        Decimal @default(8) @map("hours_worked") @db.Decimal(5, 2)
-  dailyWage          Decimal @map("daily_wage") @db.Decimal(18, 2) // Snapshot - o günkü ücret
+  dailyWage          Decimal @map("daily_wage") @db.Decimal(18, 2)
   overtimeHours      Decimal @default(0) @map("overtime_hours") @db.Decimal(5, 2)
   overtimeMultiplier Decimal @default(1.5) @map("overtime_multiplier") @db.Decimal(3, 2)
 
-  // Hesap (otomatik)
   totalEarning Decimal @default(0) @map("total_earning") @db.Decimal(18, 2)
 
   notes String? @db.Text
@@ -1029,38 +986,139 @@ model TimesheetEntryDetail {
   @@map("timesheet_entry_details")
 }
 
-// ════════════════════════════════════════════════════════════
-// ENUMS
-// ════════════════════════════════════════════════════════════
-
 enum EmployeeSpecialty {
-  FOREMAN // Ustabaşı
-  MASTER // Usta
-  APPRENTICE // Çırak
-  LABORER // Düz işçi
-  OPERATOR // Operatör (makine)
-  DRIVER // Şoför
-  TECHNICIAN // Teknisyen
-  ENGINEER // Mühendis
-  OTHER // Diğer
+  FOREMAN
+  MASTER
+  APPRENTICE
+  LABORER
+  OPERATOR
+  DRIVER
+  TECHNICIAN
+  ENGINEER
+  OTHER
 
   @@map("employee_specialty")
 }
 
 enum EmployeeStatus {
-  ACTIVE // Aktif çalışıyor
-  INACTIVE // Geçici durdurma
-  TERMINATED // İşten ayrıldı
-  ARCHIVED // Arşivlendi
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  ARCHIVED
 
   @@map("employee_status")
 }
 
 enum TimesheetStatus {
-  DRAFT // Taslak (düzenleme aşaması)
-  APPROVED // Onaylandı (proje müdürü tarafından)
-  PAID // Ödendi (hakedişe yansıdı)
-  CANCELLED // İptal
+  DRAFT
+  APPROVED
+  PAID
+  CANCELLED
 
   @@map("timesheet_status")
+}
+
+// ════════════════════════════════════════════════════════════
+// EXPENSE (Genel Gider Kaydı)
+// ════════════════════════════════════════════════════════════
+
+enum ExpenseCategory {
+  // Manuel girilen kategoriler
+  OFFICE
+  VEHICLE
+  PAYROLL_TAX
+  EQUIPMENT
+  UTILITIES
+  PERMITS
+  INSURANCE
+  CONSULTING
+  FOOD
+  TRANSPORTATION
+  COMMUNICATION
+  ENTERTAINMENT
+  OTHER
+
+  // Otomatik oluşan kategoriler
+  SUBCONTRACTOR
+  LABOR
+  MATERIAL_PURCHASE
+  SUPPLIER_PAYMENT
+}
+
+enum ExpenseStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  CHEQUE
+  CREDIT_CARD
+  OTHER
+}
+
+enum ExpenseSourceType {
+  MANUAL
+  PROGRESS_PAYMENT
+  TIMESHEET
+  MATERIAL_MOVEMENT
+  CONTACT_TRANSACTION
+}
+
+model Expense {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  code     String
+
+  category ExpenseCategory
+  status   ExpenseStatus   @default(CONFIRMED)
+
+  amount      Decimal @db.Decimal(15, 2)
+  vatRate     Decimal @default(0) @map("vat_rate") @db.Decimal(5, 2)
+  vatAmount   Decimal @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(15, 2)
+  currency    String  @default("TRY")
+
+  date        DateTime @db.Date
+  description String
+  notes       String?
+
+  projectId String?  @map("project_id")
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  contactId String?  @map("contact_id")
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  subcontractorId String?        @map("subcontractor_id")
+  subcontractor   Subcontractor? @relation(fields: [subcontractorId], references: [id])
+
+  invoiceNo String? @map("invoice_no")
+  taxNumber String? @map("tax_number")
+
+  paymentMethod PaymentMethod? @map("payment_method")
+  paidAt        DateTime?      @map("paid_at")
+
+  // Otomatik / kaynak
+  sourceType      ExpenseSourceType @default(MANUAL) @map("source_type")
+  sourceId        String?           @map("source_id")
+  isAutoGenerated Boolean           @default(false) @map("is_auto_generated")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String    @map("created_by")
+  updatedBy String    @map("updated_by")
+
+  @@unique([tenantId, sourceType, sourceId], name: "unique_source")
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, code])
+  @@index([projectId])
+  @@index([contactId])
+  @@index([subcontractorId])
+  @@index([category])
+  @@index([date])
+  @@index([sourceType, sourceId])
+  @@map("expenses")
 }

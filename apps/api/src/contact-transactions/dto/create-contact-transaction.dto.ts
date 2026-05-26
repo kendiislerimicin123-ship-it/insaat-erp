@@ -9,6 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod } from '@insaat-erp/database';
 
 export enum TransactionTypeDto {
   DEBT = 'DEBT',
@@ -47,15 +48,32 @@ export class CreateContactTransactionDto {
   @IsString()
   description?: string;
 
+  // ─── DEĞİŞTİRİLDİ: String → PaymentMethod enum ───
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  paymentMethod?: string;
+  @IsEnum(PaymentMethod, {
+    message: 'Ödeme yöntemi geçersiz. Geçerli değerler: CASH, BANK, CHEQUE, CREDIT_CARD, OTHER',
+  })
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsString()
   @MaxLength(255)
   bankReference?: string;
+
+  // ─── YENİ: ÇEK BİLGİLERİ (sadece paymentMethod === 'CHEQUE' iken kullanılır) ───
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  chequeNo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bankName?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Vade tarihi geçerli bir tarih olmalı (YYYY-MM-DD)' })
+  dueDate?: string;
 }
 
 export class ListContactTransactionsDto {

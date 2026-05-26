@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@insaat-erp/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExpensesService } from '../expenses/expenses.service';
+import { ChequesService } from '../cheques/cheques.service';
 import {
   CreateContactTransactionDto,
   ListContactTransactionsDto,
@@ -15,7 +17,11 @@ import {
 export class ContactTransactionsService {
   private readonly logger = new Logger(ContactTransactionsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly expensesService: ExpensesService,
+    private readonly chequesService: ChequesService,
+  ) {}
 
   // ────────────────────────────────────
   // CREATE (Transaction içinde bakiye güncelleme)
@@ -45,7 +51,7 @@ export class ContactTransactionsService {
     if (dto.type === 'CREDIT' || dto.type === 'PAYMENT') {
       balanceChange = amount;
     } else {
-      balanceChange = amount.neg(); // negatif
+      balanceChange = amount.neg();
     }
 
     const newBalance = currentBalance.add(balanceChange);
@@ -85,11 +91,28 @@ export class ContactTransactionsService {
       `💸 Cari hareket: ${contact.code} | ${dto.type} ${amount.toString()} ${dto.currency ?? 'TRY'} | yeni bakiye: ${newBalance.toString()}`,
     );
 
+    // 🤖 OTOMATİK GİDER ÜRETİMİ (sadece PAYMENT için)
+    if (dto.type === 'PAYMENT') {
+      await this.expensesService.createFromContactTransaction(tenantId, result.id);
+    }
+
+    // 🤖 OTOMATİK ÇEK ÜRETİMİ (PAYMENT + CHEQUE veya COLLECTION + CHEQUE için)
+    if (
+      dto.paymentMethod === 'CHEQUE' &&
+      (dto.type === 'PAYMENT' || dto.type === 'COLLECTION')
+    ) {
+      await this.chequesService.createFromContactTransaction(tenantId, result.id, {
+        chequeNo: dto.chequeNo,
+        bankName: dto.bankName,
+        dueDate: dto.dueDate,
+      });
+    }
+
     return result;
   }
 
   // ────────────────────────────────────
-  // LIST (cari ekstre veya tüm hareketler)
+  // LIST
   // ────────────────────────────────────
   async findAll(tenantId: string, query: ListContactTransactionsDto) {
     const page = query.page ?? 1;
@@ -128,7 +151,6 @@ export class ContactTransactionsService {
       }),
     ]);
 
-    // Özet (tipler bazında toplamlar)
     const sumByType = {
       DEBT: '0',
       CREDIT: '0',
@@ -175,12 +197,11 @@ export class ContactTransactionsService {
       const currentBalance = new Prisma.Decimal(contact.currentBalance.toString());
       const amount = new Prisma.Decimal(transaction.amount.toString());
 
-      // Ters işlem
       let revert: Prisma.Decimal;
       if (transaction.type === 'CREDIT' || transaction.type === 'PAYMENT') {
-        revert = amount.neg(); // yapılan toplamayı geri çıkar
+        revert = amount.neg();
       } else {
-        revert = amount; // yapılan çıkarmayı geri ekle
+        revert = amount;
       }
 
       const newBalance = currentBalance.add(revert);
@@ -201,6 +222,12 @@ export class ContactTransactionsService {
         },
       });
     });
+
+    // 🤖 OTOMATİK GİDER GERİ ÇEKME
+    await this.expensesService.deleteBySource(tenantId, 'CONTACT_TRANSACTION', id);
+
+    // 🤖 OTOMATİK ÇEK GERİ ÇEKME
+    await this.chequesService.deleteBySource(tenantId, 'CONTACT_TRANSACTION', id);
 
     this.logger.log(`🗑️  Cari hareket silindi (soft): ${id}`);
 

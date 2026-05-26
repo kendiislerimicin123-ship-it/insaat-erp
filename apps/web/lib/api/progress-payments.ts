@@ -8,6 +8,9 @@ export type PaymentStatus =
   | 'REJECTED'
   | 'CANCELLED';
 
+// Backend ile aynı enum
+export type PaymentMethod = 'CASH' | 'BANK' | 'CHEQUE' | 'CREDIT_CARD' | 'OTHER';
+
 export interface ProgressPayment {
   id: string;
   tenantId: string;
@@ -15,7 +18,7 @@ export interface ProgressPayment {
   projectId: string;
   subcontractorId: string;
   period: string;
-  amount: string; // Decimal as string
+  amount: string;
   taxRate: string;
   taxAmount: string;
   totalAmount: string;
@@ -26,7 +29,7 @@ export interface ProgressPayment {
   issuedAt: string | null;
   approvedAt: string | null;
   paidAt: string | null;
-  paymentMethod: string | null;
+  paymentMethod: PaymentMethod | null; // Artık enum
   paymentRef: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,9 +53,14 @@ export interface CreateProgressPaymentInput {
 
 export type UpdateProgressPaymentInput = Partial<CreateProgressPaymentInput>;
 
+// ─── GÜNCELLENDİ: Enum tip + opsiyonel çek bilgileri ───
 export interface PayProgressPaymentInput {
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   paymentRef?: string;
+  // Çek bilgileri (sadece paymentMethod === 'CHEQUE' iken kullanılır, opsiyonel)
+  chequeNo?: string;
+  bankName?: string;
+  dueDate?: string; // ISO format: 2026-06-15
 }
 
 export interface ListProgressPaymentsQuery {
@@ -165,6 +173,15 @@ export const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   CANCELLED: 'bg-slate-200 text-slate-600',
 };
 
+// YENİ: Ödeme yöntemi etiketleri (UI için)
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Nakit',
+  BANK: 'Havale / EFT',
+  CHEQUE: 'Çek',
+  CREDIT_CARD: 'Kredi Kartı',
+  OTHER: 'Diğer',
+};
+
 export function formatCurrency(amount: string | number, currency = 'TRY'): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   return new Intl.NumberFormat('tr-TR', {
@@ -176,7 +193,6 @@ export function formatCurrency(amount: string | number, currency = 'TRY'): strin
 }
 
 export function formatPeriod(period: string): string {
-  // 2026-05 → Mayıs 2026
   const [year, month] = period.split('-');
   const months = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',

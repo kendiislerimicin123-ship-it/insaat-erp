@@ -3,6 +3,10 @@ import { apiClient } from './client';
 export type ContactType = 'SUPPLIER' | 'CUSTOMER' | 'BOTH' | 'BANK' | 'GOVERNMENT' | 'OTHER';
 export type ContactStatus = 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'ARCHIVED';
 
+// YENİ: Ödeme yöntemi enum (backend ile aynı)
+export type PaymentMethod = 'CASH' | 'BANK' | 'CHEQUE' | 'CREDIT_CARD' | 'OTHER';
+
+
 export interface Contact {
   id: string;
   tenantId: string;
@@ -143,6 +147,15 @@ export const CONTACT_STATUS_COLORS: Record<ContactStatus, string> = {
   ARCHIVED: 'bg-amber-100 text-amber-700',
 };
 
+// YENİ: Ödeme yöntemi etiketleri
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: '💵 Nakit',
+  BANK: '🏦 Havale / EFT',
+  CHEQUE: '📋 Çek',
+  CREDIT_CARD: '💳 Kredi Kartı',
+  OTHER: '🔹 Diğer',
+};
+
 export function formatBalance(balance: string | number, currency = 'TRY'): string {
   const num = typeof balance === 'string' ? parseFloat(balance) : balance;
   return new Intl.NumberFormat('tr-TR', {
@@ -168,7 +181,7 @@ export interface ContactTransaction {
   date: string;
   documentNo: string | null;
   description: string | null;
-  paymentMethod: string | null;
+  paymentMethod: PaymentMethod | null; // GÜNCEL: string | null'dan PaymentMethod | null'a
   bankReference: string | null;
   balanceAfter: string;
   createdAt: string;
@@ -183,8 +196,12 @@ export interface CreateTransactionInput {
   date: string;
   documentNo?: string;
   description?: string;
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod; // GÜNCEL: string'den PaymentMethod'a
   bankReference?: string;
+  // YENİ: Çek bilgileri (sadece paymentMethod === 'CHEQUE' iken kullanılır)
+  chequeNo?: string;
+  bankName?: string;
+  dueDate?: string;
 }
 
 export const contactTransactionsApi = {

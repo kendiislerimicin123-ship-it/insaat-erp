@@ -11,6 +11,8 @@ import {
   TransactionType,
   TRANSACTION_TYPE_LABELS,
   Contact,
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   formatBalance,
 } from '@/lib/api/contacts';
 
@@ -20,8 +22,15 @@ const schema = z.object({
   date: z.string().min(1, 'Tarih zorunlu'),
   documentNo: z.string().optional(),
   description: z.string().optional(),
-  paymentMethod: z.string().optional(),
+  paymentMethod: z
+    .enum(['CASH', 'BANK', 'CHEQUE', 'CREDIT_CARD', 'OTHER'])
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
   bankReference: z.string().optional(),
+  // Çek bilgileri — hepsi opsiyonel
+  chequeNo: z.string().optional(),
+  bankName: z.string().optional(),
+  dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -51,9 +60,10 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
   });
 
   const type = watch('type');
+  const selectedMethod = watch('paymentMethod');
   const isPaymentRelated = type === 'PAYMENT' || type === 'COLLECTION';
+  const isCheque = isPaymentRelated && selectedMethod === 'CHEQUE';
 
-  // Modal açıldığında resetle (sadece bir kez, initialType bağımlılığı kalktı)
   useEffect(() => {
     if (open) {
       reset({
@@ -62,8 +72,11 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
         date: new Date().toISOString().slice(0, 10),
         documentNo: '',
         description: '',
-        paymentMethod: '',
+        paymentMethod: undefined,
         bankReference: '',
+        chequeNo: '',
+        bankName: '',
+        dueDate: '',
       });
     }
   }, [open, initialType, reset]);
@@ -72,7 +85,7 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
     if (!contact) return;
 
     try {
-      const payload = {
+      const basePayload = {
         contactId: contact.id,
         type: data.type,
         amount: data.amount,
@@ -84,10 +97,22 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
         bankReference: data.bankReference || undefined,
       };
 
+      // Çek bilgileri sadece CHEQUE seçilince payload'a eklenir
+      const payload = isCheque
+        ? {
+            ...basePayload,
+            chequeNo: data.chequeNo?.trim() || undefined,
+            bankName: data.bankName?.trim() || undefined,
+            dueDate: data.dueDate || undefined,
+          }
+        : basePayload;
+
       await contactTransactionsApi.create(payload);
-      toast.success(
-        `${TRANSACTION_TYPE_LABELS[data.type]} kaydedildi: ${formatBalance(data.amount, contact.currency)}`,
-      );
+
+      const message = isCheque
+        ? `${TRANSACTION_TYPE_LABELS[data.type]} (çek) kaydedildi: ${formatBalance(data.amount, contact.currency)}`
+        : `${TRANSACTION_TYPE_LABELS[data.type]} kaydedildi: ${formatBalance(data.amount, contact.currency)}`;
+      toast.success(message);
       onSuccess();
       onClose();
     } catch (error) {
@@ -104,7 +129,7 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="px-6 py-4 border-b border-slate-200">
+        <div className="px-6 py-4 border-b border-slate-200 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-900">Cari Hareket Ekle</h2>
           <p className="text-sm text-slate-500 mt-0.5">
             {contact.code} • {contact.name}
@@ -195,27 +220,22 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">
                       Ödeme Yöntemi
                     </label>
-                    <select {...register('paymentMethod')} className="input" defaultValue="Havale/EFT">
+                    <select {...register('paymentMethod')} className="input">
                       <option value="">— Seçin —</option>
-                      <option value="Nakit">💵 Nakit</option>
-                      <option value="Havale/EFT">🏦 Havale / EFT</option>
-                      <option value="Çek">📋 Çek</option>
-                      <option value="Senet">📜 Senet</option>
-                      <option value="Kredi Kartı">💳 Kredi Kartı</option>
-                      <option value="POS">🖥️ POS</option>
-                      <option value="Diğer">🔹 Diğer</option>
+                      {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((key) => (
+                        <option key={key} value={key}>
+                          {PAYMENT_METHOD_LABELS[key]}
+                        </option>
+                      ))}
                     </select>
-                    <p className="text-xs text-amber-600 mt-1">
-                      💡 Çek/Senet için detay takibi → Çek Yönetimi modülünden
-                    </p>
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">
                       Banka Ref / İşlem No
                     </label>
                     <input
                       {...register('bankReference')}
-                      placeholder="örn: BNK-12345 veya çek no"
+                      placeholder="örn: BNK-12345"
                       className="input"
                     />
                   </div>
@@ -227,6 +247,59 @@ export function TransactionModal({ open, contact, initialType, onClose, onSucces
                 <textarea {...register('description')} rows={2} className="input" />
               </div>
             </div>
+
+            {/* ─── ÇEK BİLGİLERİ (sadece PAYMENT/COLLECTION + CHEQUE seçilince görünür) ─── */}
+            {isCheque && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <p className="text-sm font-semibold text-blue-900">
+                    Çek Bilgileri ({type === 'PAYMENT' ? 'Verilen Çek' : 'Alınan Çek'})
+                  </p>
+                  <span className="text-xs text-blue-700 ml-auto">(Opsiyonel)</span>
+                </div>
+                <p className="text-xs text-blue-700">
+                  {type === 'PAYMENT'
+                    ? 'Çek/Senet sayfasına VERİLEN çek olarak otomatik kaydedilecek.'
+                    : 'Çek/Senet sayfasına GELEN çek olarak otomatik kaydedilecek.'}{' '}
+                  Bilgileri doldurmazsanız sistem varsayılan değerlerle kaydeder.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Çek Numarası
+                    </label>
+                    <input
+                      {...register('chequeNo')}
+                      placeholder="Örn: 001234"
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Banka
+                    </label>
+                    <input
+                      {...register('bankName')}
+                      placeholder="Örn: Ziraat Bankası"
+                      className="input"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Vade Tarihi
+                    </label>
+                    <input type="date" {...register('dueDate')} className="input" />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Boş bırakılırsa: hareket tarihinden 30 gün sonrası
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
               <button

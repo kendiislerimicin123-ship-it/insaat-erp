@@ -18,6 +18,7 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AppService } from './app.service';
     ChequesModule,
     EmployeesModule,
     TimesheetsModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [

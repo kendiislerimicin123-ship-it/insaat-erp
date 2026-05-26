@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -34,6 +35,7 @@ const MENU_GROUPS: MenuGroup[] = [
     items: [
       { href: '/contacts', label: 'Cari Hesaplar', icon: '👥', permission: 'contact.read' },
       { href: '/cheques', label: 'Çek / Senet', icon: '📋', permission: 'cheque.read' },
+      { href: '/expenses', label: 'Genel Giderler', icon: '💸', permission: 'expense.read' },
     ],
   },
   {
@@ -59,9 +61,14 @@ const MENU_GROUPS: MenuGroup[] = [
 ];
 
 export function Sidebar() {
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isItemActive = (item: MenuItem): boolean => {
     if (item.isSubItem) return pathname === item.href;
@@ -78,6 +85,24 @@ export function Sidebar() {
         .join('')
         .toUpperCase()
     : 'U';
+
+  // SSR sırasında boş aside göster, hydration mismatch'i önle
+  if (!mounted) {
+    return (
+      <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-screen sticky top-0">
+        <div className="px-5 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🏗️</span>
+            <h1 className="text-base font-bold tracking-tight text-white">İnşaat ERP</h1>
+          </div>
+        </div>
+        <div className="flex-1" />
+        <div className="border-t border-slate-800 px-5 py-2 text-[10px] text-slate-500 text-center">
+          v0.1.0 — beta
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-screen sticky top-0">

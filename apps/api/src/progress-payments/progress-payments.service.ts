@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@insaat-erp/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExpensesService } from '../expenses/expenses.service';
+import { ChequesService } from '../cheques/cheques.service';
 import { CreateProgressPaymentDto } from './dto/create-progress-payment.dto';
 import { UpdateProgressPaymentDto } from './dto/update-progress-payment.dto';
 import { ListProgressPaymentsDto } from './dto/list-progress-payments.dto';
@@ -16,7 +18,11 @@ import { PayProgressPaymentDto } from './dto/pay-progress-payment.dto';
 export class ProgressPaymentsService {
   private readonly logger = new Logger(ProgressPaymentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly expensesService: ExpensesService,
+    private readonly chequesService: ChequesService,
+  ) {}
 
   // ────────────────────────────────────
   // CREATE
@@ -26,7 +32,6 @@ export class ProgressPaymentsService {
     userId: string,
     dto: CreateProgressPaymentDto,
   ) {
-    // Kod benzersiz mi?
     const existing = await this.prisma.progressPayment.findFirst({
       where: { tenantId, code: dto.code, deletedAt: null },
     });
@@ -36,7 +41,6 @@ export class ProgressPaymentsService {
       );
     }
 
-    // Proje aynı tenant'a mı ait?
     const project = await this.prisma.project.findFirst({
       where: { id: dto.projectId, tenantId, deletedAt: null },
     });
@@ -44,7 +48,6 @@ export class ProgressPaymentsService {
       throw new BadRequestException(`Proje bulunamadı: ${dto.projectId}`);
     }
 
-    // Taşeron aynı tenant'a mı ait?
     const subcontractor = await this.prisma.subcontractor.findFirst({
       where: { id: dto.subcontractorId, tenantId, deletedAt: null },
     });
@@ -54,7 +57,6 @@ export class ProgressPaymentsService {
       );
     }
 
-    // Finansal hesaplar (Decimal arithmetic için string'den gidelim)
     const amount = new Prisma.Decimal(dto.amount);
     const taxRate = new Prisma.Decimal(dto.taxRate ?? 20);
     const taxAmount = amount.mul(taxRate).div(100);
@@ -127,7 +129,6 @@ export class ProgressPaymentsService {
         },
       }),
       this.prisma.progressPayment.count({ where }),
-      // Sayfa özeti: toplam tutar (filter'lara göre)
       this.prisma.progressPayment.aggregate({
         where,
         _sum: { amount: true, taxAmount: true, totalAmount: true },
@@ -182,14 +183,12 @@ export class ProgressPaymentsService {
   ) {
     const current = await this.findOne(tenantId, id);
 
-    // PAID veya CANCELLED durumdaki hakediş güncellenemez
     if (['PAID', 'CANCELLED'].includes(current.status)) {
       throw new BadRequestException(
         `${current.status} durumundaki hakediş güncellenemez`,
       );
     }
 
-    // Kod değişiyorsa unique kontrol
     if (dto.code && dto.code !== current.code) {
       const conflict = await this.prisma.progressPayment.findFirst({
         where: {
@@ -206,7 +205,6 @@ export class ProgressPaymentsService {
       }
     }
 
-    // Proje değişiyorsa kontrol
     if (dto.projectId && dto.projectId !== current.projectId) {
       const project = await this.prisma.project.findFirst({
         where: { id: dto.projectId, tenantId, deletedAt: null },
@@ -216,7 +214,6 @@ export class ProgressPaymentsService {
       }
     }
 
-    // Taşeron değişiyorsa kontrol
     if (
       dto.subcontractorId &&
       dto.subcontractorId !== current.subcontractorId
@@ -231,7 +228,6 @@ export class ProgressPaymentsService {
       }
     }
 
-    // Finansal hesap güncellemesi (tutar veya KDV oranı değiştiyse)
     const updateData: Prisma.ProgressPaymentUpdateInput = {
       ...(dto.code !== undefined && { code: dto.code }),
       ...(dto.projectId !== undefined && {
@@ -294,13 +290,19 @@ export class ProgressPaymentsService {
       },
     });
 
+    // 🤖 OTOMATİK GİDER GERİ ÇEKME
+    await this.expensesService.deleteBySource(tenantId, 'PROGRESS_PAYMENT', id);
+
+    // 🤖 OTOMATİK ÇEK GERİ ÇEKME
+    await this.chequesService.deleteBySource(tenantId, 'PROGRESS_PAYMENT', id);
+
     this.logger.log(`🗑️  Hakediş silindi (soft): ${current.code}`);
 
     return { message: 'Hakediş silindi', id };
   }
 
   // ────────────────────────────────────
-  // APPROVE (status transition)
+  // APPROVE
   // ────────────────────────────────────
   async approve(tenantId: string, userId: string, id: string) {
     const current = await this.findOne(tenantId, id);
@@ -357,6 +359,18 @@ export class ProgressPaymentsService {
     this.logger.log(
       `💵 Hakediş ödendi: ${current.code} | ${current.totalAmount.toString()} ${current.currency} | yöntem: ${dto.paymentMethod}`,
     );
+
+    // 🤖 OTOMATİK GİDER ÜRETİMİ
+    await this.expensesService.createFromProgressPayment(tenantId, id);
+
+    // 🤖 OTOMATİK ÇEK ÜRETİMİ (sadece paymentMethod === 'CHEQUE' ise)
+    if (dto.paymentMethod === 'CHEQUE') {
+      await this.chequesService.createFromProgressPayment(tenantId, id, {
+        chequeNo: dto.chequeNo,
+        bankName: dto.bankName,
+        dueDate: dto.dueDate,
+      });
+    }
 
     return this.findOne(tenantId, id);
   }
