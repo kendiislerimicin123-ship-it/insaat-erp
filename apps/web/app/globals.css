@@ -12,11 +12,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+  NOT: Dark mode desteği bilinçli olarak kaldırıldı.
+  Uygulama tamamen açık tema tasarlandı (slate-900 sidebar + beyaz kartlar).
+  prefers-color-scheme media query'si beyaz zemin üzerine beyaz yazı
+  sorununa yol açıyordu. İleride gerçek dark mode istenirse tüm
+  sayfalar birlikte tasarlanmalı.
+*/
+
+html {
+  color-scheme: light;
 }
 
 body {
@@ -24,6 +29,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
 /* Form input styling */
 .input {
   width: 100%;
@@ -31,9 +37,15 @@ body {
   border: 1px solid rgb(203 213 225);
   border-radius: 0.5rem;
   background: white;
+  color: rgb(15 23 42);
   font-size: 0.875rem;
   outline: none;
   transition: all 0.15s;
+}
+
+.input::placeholder {
+  color: rgb(148 163 184);
+  opacity: 1;
 }
 
 .input:focus {
@@ -45,4 +57,30 @@ body {
   background: rgb(248 250 252);
   color: rgb(100 116 139);
   cursor: not-allowed;
+}
+
+/* Select ve option renkleri (tarayıcı varsayılanını ezmek için) */
+select.input {
+  color: rgb(15 23 42);
+}
+
+select.input option {
+  color: rgb(15 23 42);
+  background: white;
+}
+
+/* Textarea da .input sınıfını kullanıyor */
+textarea.input {
+  resize: vertical;
+  min-height: 2.5rem;
+}
+
+/* Tarih input'unun takvim ikonu koyu temada kaybolmasın */
+.input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }

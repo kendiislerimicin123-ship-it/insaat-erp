@@ -14,6 +14,7 @@ import {
   EXPENSE_CATEGORY_ICONS,
   EXPENSE_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
+  AUTO_ONLY_CATEGORIES,
   formatExpenseAmount,
 } from '@/lib/api/expenses';
 import { projectsApi } from '@/lib/api/projects';
@@ -40,13 +41,17 @@ const schema = z.object({
   taxNumber: z.string().max(20).optional().or(z.literal('')),
   paymentMethod: z.enum(['CASH', 'BANK', 'CHEQUE', 'CREDIT_CARD', 'OTHER']).optional().or(z.literal('')),
   paidAt: z.string().optional().or(z.literal('')),
-  // YENİ: Çek bilgileri (opsiyonel)
+  // Çek bilgileri (opsiyonel)
   chequeNo: z.string().optional(),
   bankName: z.string().optional(),
   dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
+
+// Manuel girişte seçilebilir kategoriler (otomatik olanlar hariç)
+const MANUAL_CATEGORIES = (Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[])
+  .filter((k) => !AUTO_ONLY_CATEGORIES.includes(k));
 
 interface Props {
   open: boolean;
@@ -225,12 +230,16 @@ export function ExpenseFormModal({ open, expense, onClose, onSuccess }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field label="Kategori *" error={errors.category?.message} fullWidth>
               <select {...register('category')} className="input">
-                {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((key) => (
+                {MANUAL_CATEGORIES.map((key) => (
                   <option key={key} value={key}>
                     {EXPENSE_CATEGORY_ICONS[key]} {EXPENSE_CATEGORY_LABELS[key]}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Taşeron, işçilik, malzeme ve tedarikçi giderleri sistem tarafından
+                otomatik oluşturulur — buradan seçilemez.
+              </p>
             </Field>
             <Field label="Durum *" error={errors.status?.message}>
               <select {...register('status')} className="input">

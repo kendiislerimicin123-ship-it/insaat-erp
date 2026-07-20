@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@insaat-erp/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { ListMaterialsDto } from './dto/list-materials.dto';
@@ -19,7 +20,10 @@ import {
 export class MaterialsService {
   private readonly logger = new Logger(MaterialsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly expensesService: ExpensesService,
+  ) {}
 
   // ════════════════════════════════════
   // MATERIAL CRUD
@@ -295,6 +299,13 @@ export class MaterialsService {
       `📊 Stok hareketi: ${material.code} | ${dto.type} ${quantity.toString()} ${material.unit} | yeni stok: ${newStock.toString()}`,
     );
 
+    // 🤖 OTOMATİK GİDER ÜRETİMİ
+    // Kural (D): IN + fiyat varsa gider yazılır.
+    // Proje seçiliyse projeye, seçilmemişse genel gider olarak.
+    // OUT ve ADJUSTMENT gider üretmez (mükerrer kaydı engellemek için).
+    if (dto.type === 'IN' && totalPrice) {
+      await this.expensesService.createFromMaterialMovement(tenantId, result.id);
+    }
     return result;
   }
 
@@ -453,6 +464,9 @@ export class MaterialsService {
       });
     });
 
+    // 🤖 OTOMATİK GİDER GERİ ÇEKME
+    await this.expensesService.deleteBySource(tenantId, 'MATERIAL_MOVEMENT', id);
+
     this.logger.log(`🗑️  Stok hareketi silindi (soft): ${id}`);
 
     return { message: 'Stok hareketi silindi', id };
@@ -538,4 +552,4 @@ export class MaterialsService {
       totalStockValue: totalStockValue.toString(),
     };
   }
-}
+} 

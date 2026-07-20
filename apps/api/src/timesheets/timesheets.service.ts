@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@insaat-erp/database';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import {
   CreateTimesheetDto,
   UpdateTimesheetDto,
@@ -17,7 +18,10 @@ import {
 export class TimesheetsService {
   private readonly logger = new Logger(TimesheetsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly expensesService: ExpensesService,
+  ) {}
 
   // Bir detay satırı için kazanç hesaplama
   private calculateEarning(detail: TimesheetDetailInputDto): Prisma.Decimal {
@@ -228,6 +232,14 @@ export class TimesheetsService {
   ) {
     const existing = await this.findOne(tenantId, id);
 
+    // ⚠️ APPROVED puantaj otomatik gider üretmiş olabilir.
+    // Tutar değişirse gider kaydı ile tutarsızlık oluşur → düzenlemeye kapalı.
+    if (existing.status === 'APPROVED') {
+      throw new BadRequestException(
+        'Onaylanmış puantaj düzenlenemez. Değişiklik için puantajı silip yeniden oluşturun.',
+      );
+    }
+
     if (existing.status === 'PAID') {
       throw new BadRequestException('Ödenmiş puantaj düzenlenemez');
     }
@@ -327,6 +339,9 @@ export class TimesheetsService {
 
     this.logger.log(`✅ Puantaj onaylandı: ${id}`);
 
+    // 🤖 OTOMATİK GİDER ÜRETİMİ (LABOR kategorisi)
+    await this.expensesService.createFromTimesheet(tenantId, id);
+
     return updated;
   }
 
@@ -344,6 +359,9 @@ export class TimesheetsService {
         updatedBy: userId,
       },
     });
+
+    // 🤖 OTOMATİK GİDER GERİ ÇEKME
+    await this.expensesService.deleteBySource(tenantId, 'TIMESHEET', id);
 
     this.logger.log(`🗑️  Puantaj silindi (soft): ${id}`);
 

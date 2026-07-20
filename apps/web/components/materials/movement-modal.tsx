@@ -58,6 +58,7 @@ export function MovementModal({ open, material, initialType, onClose, onSuccess 
   const type = watch('type');
   const quantity = watch('quantity');
   const unitPrice = watch('unitPrice');
+  const projectId = watch('projectId');
 
   const totalPrice = useMemo(() => {
     return (Number(quantity) || 0) * (Number(unitPrice) || 0);
@@ -111,6 +112,8 @@ export function MovementModal({ open, material, initialType, onClose, onSuccess 
   };
 
   if (!open || !material) return null;
+
+  const selectedProject = projects.find((p) => p.id === projectId);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -204,6 +207,19 @@ export function MovementModal({ open, material, initialType, onClose, onSuccess 
                       className="input"
                     />
                   </Field>
+                  <Field label="Proje (hangi şantiyeye?)" error={errors.projectId?.message} fullWidth>
+                    <select {...register('projectId')} className="input">
+                      <option value="">— Depoya alım (proje yok) —</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.code} — {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Proje seçerseniz gider o projeye yazılır, boş bırakırsanız genel gider olur.
+                    </p>
+                  </Field>
                   <Field label="Fatura No" error={errors.invoiceNo?.message} fullWidth>
                     <input
                       {...register('invoiceNo')}
@@ -232,15 +248,29 @@ export function MovementModal({ open, material, initialType, onClose, onSuccess 
               </Field>
             </div>
 
-            {/* Toplam Tutar (IN için) */}
+            {/* Toplam Tutar + Gider bilgisi (IN için) */}
             {type === 'IN' && totalPrice > 0 && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-emerald-700 font-medium">Toplam Tutar</p>
                   <p className="text-xl font-bold text-emerald-700">
                     {formatCurrency(totalPrice, material.currency)}
                   </p>
                 </div>
+                <p className="text-xs text-emerald-800 border-t border-emerald-200 pt-2">
+                  🤖 Bu tutar otomatik olarak <strong>Genel Giderler</strong>&apos;e
+                  &quot;Malzeme Alımı&quot; kategorisiyle yazılacak
+                  {selectedProject
+                    ? ` (${selectedProject.code} projesine).`
+                    : ' (genel gider olarak).'}
+                </p>
+              </div>
+            )}
+
+            {/* IN ama fiyat girilmemiş uyarısı */}
+            {type === 'IN' && !totalPrice && (
+              <div className="bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg text-xs text-amber-800">
+                ⚠️ Birim fiyat girilmezse gider kaydı oluşturulmaz, sadece stok artar.
               </div>
             )}
 
