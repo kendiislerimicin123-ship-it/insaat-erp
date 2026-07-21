@@ -448,6 +448,20 @@ export class ExpensesService {
         return null;
       }
 
+      // ⚠️ Fatura kaynaklı hareket → gider YAZMA
+      // Fatura onayı zaten gider kaydı oluşturdu. Ödeme yapıldığında
+      // ayrıca gider yazılırsa aynı harcama iki kez sayılır.
+      if (tx.invoiceId) {
+        this.logger.log(
+          `ℹ️  Cari hareketi fatura kaynaklı (${tx.invoiceId}), gider yazılmıyor: ${transactionId}`,
+        );
+        return null;
+      }
+
+      if (tx.type !== 'PAYMENT') {
+        return null;
+      }
+
       if (tx.type !== 'PAYMENT') {
         return null;
       }
@@ -584,6 +598,20 @@ export class ExpensesService {
 
       if (!movement) {
         this.logger.warn(`⚠️  MaterialMovement bulunamadı: ${movementId}`);
+        return null;
+      }
+      // ⚠️ Fatura kaynaklı hareket → gider YAZMA
+      // Faturanın kendisi tek bir gider kaydı oluşturuyor.
+      // Buradan da yazılırsa aynı harcama iki kez gidere düşer.
+      if (movement.invoiceId) {
+        this.logger.log(
+          `ℹ️  Stok hareketi fatura kaynaklı (${movement.invoiceId}), gider yazılmıyor: ${movementId}`,
+        );
+        return null;
+      }
+
+      // Sadece giriş hareketleri gider üretir
+      if (movement.type !== 'IN') {
         return null;
       }
 

@@ -20,14 +20,16 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
+    "dotenv-cli": "^8.0.0",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "@types/node": "^22.10.2",
-    "dotenv-cli": "^8.0.0"
+    "typescript": "^5.7.2"
   },
   "prisma": {
     "schema": "./prisma/schema.prisma",

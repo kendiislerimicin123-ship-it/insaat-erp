@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { seedDemo } from './seed-demo';
 
 const prisma = new PrismaClient();
 
@@ -84,11 +85,20 @@ const PERMISSIONS = [
   { resource: 'timesheet', action: 'delete', description: 'Puantaj silme' },
   { resource: 'timesheet', action: 'approve', description: 'Puantaj onaylama' },
 
-  // Expense (Genel Gider)  ← DOĞRU FORMAT
+  // Expense (Genel Gider)
   { resource: 'expense', action: 'create', description: 'Genel gider kaydı oluşturma' },
   { resource: 'expense', action: 'read', description: 'Genel giderleri görüntüleme' },
   { resource: 'expense', action: 'update', description: 'Genel gider güncelleme' },
   { resource: 'expense', action: 'delete', description: 'Genel gider silme' },
+
+  // Invoice (Fatura)
+  { resource: 'invoice', action: 'create', description: 'Yeni fatura oluşturma' },
+  { resource: 'invoice', action: 'read', description: 'Fatura görüntüleme' },
+  { resource: 'invoice', action: 'update', description: 'Fatura düzenleme (sadece taslak)' },
+  { resource: 'invoice', action: 'delete', description: 'Fatura silme (sadece taslak)' },
+  { resource: 'invoice', action: 'confirm', description: 'Fatura onaylama (cari/stok/gider oluşturur)' },
+  { resource: 'invoice', action: 'pay', description: 'Fatura ödeme işaretleme' },
+  { resource: 'invoice', action: 'cancel', description: 'Fatura iptal (otomatik kayıtları geri çeker)' },
 
   // Audit log
   { resource: 'audit', action: 'read', description: 'Audit log görüntüleme' },
@@ -161,6 +171,13 @@ const SYSTEM_ROLES = [
       'expense.read',
       'expense.update',
       'expense.delete',
+      'invoice.create',
+      'invoice.read',
+      'invoice.update',
+      'invoice.delete',
+      'invoice.confirm',
+      'invoice.pay',
+      'invoice.cancel',
       'audit.read',
     ],
   },
@@ -197,6 +214,9 @@ const SYSTEM_ROLES = [
       'timesheet.approve',
       'expense.create',
       'expense.read',
+      'invoice.create',
+      'invoice.read',
+      'invoice.update',
     ],
   },
   {
@@ -216,6 +236,7 @@ const SYSTEM_ROLES = [
       'employee.read',
       'timesheet.read',
       'expense.read',
+      'invoice.read',
     ],
   },
 ];
@@ -303,7 +324,15 @@ async function main() {
     );
   }
 
-  console.log('\n🎉 Seed tamamlandı!\n');
+  console.log('\n🎉 Temel seed tamamlandı!\n');
+
+  // ─── 5. DEMO VERİSİ (sadece SEED_DEMO=true ise) ───
+  if (process.env.SEED_DEMO === 'true') {
+    await seedDemo(prisma);
+    console.log('🎉 Demo verisi tamamlandı!\n');
+  } else {
+    console.log('ℹ️  Demo verisi atlandı (SEED_DEMO=true ile çalıştırın)\n');
+  }
 }
 
 main()

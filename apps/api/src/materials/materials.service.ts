@@ -299,10 +299,15 @@ export class MaterialsService {
       `📊 Stok hareketi: ${material.code} | ${dto.type} ${quantity.toString()} ${material.unit} | yeni stok: ${newStock.toString()}`,
     );
 
-    // 🤖 OTOMATİK GİDER ÜRETİMİ
+   // 🤖 OTOMATİK GİDER ÜRETİMİ
     // Kural (D): IN + fiyat varsa gider yazılır.
     // Proje seçiliyse projeye, seçilmemişse genel gider olarak.
     // OUT ve ADJUSTMENT gider üretmez (mükerrer kaydı engellemek için).
+    //
+    // ⚠️ Fatura kaynaklı hareketlerde gider YAZILMAZ — faturanın kendisi
+    // tek bir gider kaydı oluşturur. Buradan da yazılırsa aynı harcama
+    // iki kez gidere düşer. Bu metot manuel stok girişleri için çalışır;
+    // fatura onayı InvoicesService.confirm() içinde kendi kaydını yazar.
     if (dto.type === 'IN' && totalPrice) {
       await this.expensesService.createFromMaterialMovement(tenantId, result.id);
     }
